@@ -1,6 +1,7 @@
 
 package ch.elexis.global_inbox.ui.parts;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -40,6 +41,7 @@ import ch.elexis.core.model.IMandator;
 import ch.elexis.core.model.IPatient;
 import ch.elexis.core.services.IConfigService;
 import ch.elexis.core.services.holder.EncounterServiceHolder;
+import ch.elexis.core.time.TimeUtil;
 import ch.elexis.core.ui.dialogs.KontaktSelektor;
 import ch.elexis.core.ui.documents.composites.CategorySelectionEditComposite;
 import ch.elexis.core.ui.util.SWTHelper;
@@ -65,13 +67,14 @@ public class GlobalInboxEntryDetailPart {
 	private Text txtTitle;
 	private CategorySelectionEditComposite csec;
 	private CDateTime archivingDate;
-	private MultiDateSelector creationDate;
+	private MultiDateSelector creationDateSelector;
 	private ComboViewer cvPatient;
 	private ComboViewer cvSender;
 	private Text txtKeywords;
 	private Button btnInfoTo;
 	private ComboViewer cvInfoToReceiver;
 	
+	@SuppressWarnings("unchecked")
 	@Inject
 	public GlobalInboxEntryDetailPart(Composite parent, IConfigService configService,
 		EHandlerService handlerService){
@@ -82,7 +85,11 @@ public class GlobalInboxEntryDetailPart {
 		
 		txtTitle = new Text(parent, SWT.BORDER);
 		txtTitle.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
-		txtTitle.addModifyListener(e -> globalInboxEntry.setTitle(txtTitle.getText()));
+		txtTitle.addModifyListener(e -> {
+			if (globalInboxEntry != null) {
+				globalInboxEntry.setTitle(txtTitle.getText());
+			}
+		});
 		ContentProposalAdapter titleContentProposalAdapter =
 			new ContentProposalAdapter(txtTitle, new TitleControlContentAdapter(txtTitle),
 				new TitleContentProposalProvider(txtTitle), null, null);
@@ -101,7 +108,9 @@ public class GlobalInboxEntryDetailPart {
 		csec.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
 		csec.addSelectionChangeListener(sc -> {
 			ICategory category = (ICategory) sc.getStructuredSelection().getFirstElement();
-			globalInboxEntry.setCategory(category.getName());
+			if (globalInboxEntry != null) {
+				globalInboxEntry.setCategory(category.getName());
+			}
 		});
 		
 		label = new Label(parent, SWT.None);
@@ -114,7 +123,9 @@ public class GlobalInboxEntryDetailPart {
 		archivingDate.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e){
-				globalInboxEntry.setArchivingDate(archivingDate.getSelection());
+				if (globalInboxEntry != null) {
+					globalInboxEntry.setArchivingDate(archivingDate.getSelection());
+				}
 			};
 		});
 		
@@ -126,13 +137,15 @@ public class GlobalInboxEntryDetailPart {
 		
 		label = new Label(parent, SWT.None);
 		label.setText("Erstelldatum");
-		creationDate = new MultiDateSelector(parent, SWT.None);
+		creationDateSelector = new MultiDateSelector(parent, SWT.None);
 		GridData gd_multiDateSelector = new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1);
-		creationDate.setLayoutData(gd_multiDateSelector);
-		creationDate.addSelectionListener(new SelectionAdapter() {
+		creationDateSelector.setLayoutData(gd_multiDateSelector);
+		creationDateSelector.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e){
-				globalInboxEntry.setCreationDate(creationDate.getSelection());
+				if (globalInboxEntry != null) {
+					globalInboxEntry.setCreationDate(creationDateSelector.getSelection());
+				}
 			};
 		});
 		
@@ -155,7 +168,10 @@ public class GlobalInboxEntryDetailPart {
 					IPatient iPatient = patient.toIPatient();
 					cvPatient.add(iPatient);
 					cvPatient.setSelection(new StructuredSelection(iPatient));
-					globalInboxEntry.setPatient(iPatient);
+					if (globalInboxEntry != null) {
+						globalInboxEntry.getPatientCandidates().add(iPatient);
+						globalInboxEntry.setPatient(iPatient);
+					}
 				}
 			}
 		});
@@ -165,7 +181,9 @@ public class GlobalInboxEntryDetailPart {
 		cvPatient.setLabelProvider(new IdentifiableLabelProvider());
 		cvPatient.addSelectionChangedListener(sc -> {
 			IPatient patient = (IPatient) sc.getStructuredSelection().getFirstElement();
-			globalInboxEntry.setPatient(patient);
+			if (globalInboxEntry != null) {
+				globalInboxEntry.setPatient(patient);
+			}
 			if (patient != null) {
 				IContact familyDoctor = patient.getFamilyDoctor();
 				IMandator mandator;
@@ -197,7 +215,9 @@ public class GlobalInboxEntryDetailPart {
 					IContact iContact = contact.toIContact();
 					cvSender.add(iContact);
 					cvSender.setSelection(new StructuredSelection(iContact));
-					globalInboxEntry.setSender(iContact);
+					if (globalInboxEntry != null) {
+						globalInboxEntry.setSender(iContact);
+					}
 				}
 			}
 		});
@@ -209,7 +229,9 @@ public class GlobalInboxEntryDetailPart {
 		ccvSender.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
 		cvSender.addSelectionChangedListener(sc -> {
 			IContact sender = (IContact) cvSender.getStructuredSelection().getFirstElement();
-			globalInboxEntry.setSender(sender);
+			if (globalInboxEntry != null) {
+				globalInboxEntry.setSender(sender);
+			}
 		});
 		
 		label = new Label(parent, SWT.None);
@@ -219,7 +241,11 @@ public class GlobalInboxEntryDetailPart {
 		GridData gd_txtKeywords = new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1);
 		gd_txtKeywords.heightHint = 40;
 		txtKeywords.setLayoutData(gd_txtKeywords);
-		txtKeywords.addModifyListener(e -> globalInboxEntry.setKeywords(txtKeywords.getText()));
+		txtKeywords.addModifyListener(e -> {
+			if (globalInboxEntry != null) {
+				globalInboxEntry.setKeywords(txtKeywords.getText());
+			}
+		});
 		
 		label = new Label(parent, SWT.None);
 		label.setText("Info");
@@ -236,7 +262,9 @@ public class GlobalInboxEntryDetailPart {
 		btnInfoTo.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e){
-				globalInboxEntry.setSendInfoTo(btnInfoTo.getSelection());
+				if (globalInboxEntry != null) {
+					globalInboxEntry.setSendInfoTo(btnInfoTo.getSelection());
+				}
 			}
 		});
 		cvInfoToReceiver = new ComboViewer(infoComposite, SWT.NONE);
@@ -247,8 +275,11 @@ public class GlobalInboxEntryDetailPart {
 		List<IMandator> mandators =
 			CoreModelServiceHolder.get().getQuery(IMandator.class).execute();
 		cvInfoToReceiver.setInput(mandators);
-		cvInfoToReceiver.addSelectionChangedListener(
-			sc -> globalInboxEntry.setInfoTo(sc.getStructuredSelection().toList()));
+		cvInfoToReceiver.addSelectionChangedListener(sc -> {
+			if (globalInboxEntry != null) {
+				globalInboxEntry.setInfoTo(sc.getStructuredSelection().toList());
+			}
+		});
 		
 		Composite buttonComposite = new Composite(parent, SWT.NONE);
 		buttonComposite.setLayout(new GridLayout(2, false));
@@ -284,6 +315,13 @@ public class GlobalInboxEntryDetailPart {
 		this.globalInboxEntry = globalInboxEntry;
 		
 		if (globalInboxEntry == null) {
+			txtTitle.setText("");
+			csec.setCategoryByName(null);
+			archivingDate.setSelection(null);
+			creationDateSelector.setSelectionOptionsAndDefault(Collections.emptyList(), null);
+			cvPatient.setInput(null);
+			cvSender.setInput(null);
+			txtKeywords.setText("");
 			return;
 		}
 		
@@ -300,14 +338,17 @@ public class GlobalInboxEntryDetailPart {
 			archivingDate.setSelection(new Date());
 		}
 		
-		creationDate.setSelectionOptionsAndDefault(globalInboxEntry.getCreationDateCandidates(),
-			globalInboxEntry.getCreationDate());
+		Date creationDate = globalInboxEntry.getCreationDate();
+		if (creationDate == null) {
+			creationDate = TimeUtil.toDate(globalInboxEntry.getCreationDateCandidate());
+		}
+		
+		Date creationDatePreselection = creationDateSelector
+			.setSelectionOptionsAndDefault(globalInboxEntry.getDateTokens(), creationDate);
+		globalInboxEntry.setCreationDate(creationDatePreselection);
 		
 		IPatient selectedPatient = globalInboxEntry.getPatient();
 		List<IPatient> patientCandidates = globalInboxEntry.getPatientCandidates();
-		if (selectedPatient != null) {
-			patientCandidates.add(selectedPatient);
-		}
 		cvPatient.setInput(patientCandidates);
 		if (selectedPatient == null && !patientCandidates.isEmpty()) {
 			cvPatient.setSelection(new StructuredSelection(patientCandidates.get(0)));
@@ -344,11 +385,10 @@ public class GlobalInboxEntryDetailPart {
 				.createCommand("ch.elexis.global_inbox.command.globalinboxentryimport");
 			if (handlerService.canExecute(cmd)) {
 				handlerService.executeHandler(cmd);
+				setGlobalInboxEntry(null);
 			} else {
 				SWTHelper.showError("Could not import", "Patient or category value is missing");
 			}
-			
-			setGlobalInboxEntry(null);
 		}
 	}
 	
