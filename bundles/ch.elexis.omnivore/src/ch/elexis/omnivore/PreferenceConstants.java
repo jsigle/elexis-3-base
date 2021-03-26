@@ -20,8 +20,10 @@ public class PreferenceConstants {
 	// will not import files with names longer than 80 chars.
 	// So I make this setting configurable. Including a safe default and limits that a user cannot
 	// exceed.
+	// 20210326js: The previous default of 120 is NOT safe.
+	// As just stated it won't work with MS Windows. Changed to 80.
 	public static final Integer OmnivoreMax_Filename_Length_Min = 12;
-	public static final Integer OmnivoreMax_Filename_Length_Default = 120;
+	public static final Integer OmnivoreMax_Filename_Length_Default = 80;
 	public static final Integer OmnivoreMax_Filename_Length_Max = 255;
 	
 	// For automatic archiving of incoming files:
