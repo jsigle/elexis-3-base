@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017, J. Sigle, Niklaus Giger and Elexis
+ * Copyright (c) 2017-2021, J. Sigle, Niklaus Giger and Elexis
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,6 +8,7 @@
  * Contributors:
  *    J. Sigle - Initial implementation in a private branch of Elexis 2.1
  *    N. Giger - Reworked for Elexis 3.4 including unit tests
+ *    J. Sigle - Minor reviews and additional debug messages for Elexis 3.7
  *    
  *******************************************************************************/
 
@@ -34,54 +35,96 @@ public class Utils {
 	private static Logger log = LoggerFactory.getLogger(Utils.class);
 	
 	static public File archiveFile(File file, DocHandle dh){
-		File newFile = null;
+		//Check if a valid file has been supplied
+		if ( file == null ) {
+			log.warn("archiveFile was called with file == null - nothing to archive, aborting and returning null");
+			return null;
+		} 
+
+		String fileAbsolutePath = file.getAbsolutePath();
+		log.debug("Rule based auto-archiving routine invoked for file: {}", file.getName() );
+		log.debug("fileAbsolutePath is: {}", fileAbsolutePath );
+				
+		//Obtain number of defined auto-archiving rules
+		int nRules = Preferences.getOmnivorenRulesForAutoArchiving();
+		int nRulesMatched = 0;
+		
+		if ( nRules <= 0 ) {
+			log.debug("getOmnivorenRulesForAutoArchiving is: {} - no rules available, aborting and returning null" , nRules );
+			return null;
+		} else {
+			log.debug("Number of available rules = nRules is: {}" , nRules);			
+		}
+
 		String SrcPattern = null;
 		String DestDir = null;
 		
+		File newFile = null;
+		String newFileAbsolutePath = null;
+				
 		try {
-			for (Integer i = 0; i < Preferences.getOmnivorenRulesForAutoArchiving(); i++) {
+			//Process auto-archiving rules starting at rule no. 0
+			//until the first match is found between SrcPattern[i] and fileAbsolutePath.			
+			for (int i= 0; i < nRules; i++) {
 				SrcPattern = Preferences.getOmnivoreRuleForAutoArchivingSrcPattern(i);
 				DestDir = Preferences.getOmnivoreRuleForAutoArchivingDestDir(i);
+
+				log.debug("Processing rule no. {}" , i);
+				log.debug("SrcPattern[{}] = "+SrcPattern);				
+				log.debug("DestDir[{}]    = "+DestDir);
+
 				if ((SrcPattern != null) && (DestDir != null)
 					&& ((SrcPattern != "" || DestDir != ""))) {
-					if (file.getAbsolutePath().contains(SrcPattern)) {
-						log.debug("SrcPattern {} found in file.getAbsolutePath() pos {}",
-							SrcPattern, i);
+					
+					if (fileAbsolutePath.contains(SrcPattern)) {
+						log.debug("Rule {} SrcPattern {} matched by fileAbsolutePath", i, SrcPattern );
+						nRulesMatched++;
+						
 						if (DestDir == "") {
 							log.debug(
-								"DestDir is empty. No more rules will be evaluated for this file. Returning.");
+								"DestDir for matching rule is empty. No more rules will be evaluated for this file. Returning null.");
+							return null;
 						}
+				
 						newFile = new File(DestDir);
 						if (newFile.isDirectory()) {
 							newFile = new File(DestDir + File.separatorChar + file.getName());
 						}
 						
+						newFileAbsolutePath = newFile.getAbsolutePath(); 
+						
 						if (newFile.isDirectory()) {
-							log.debug("new File {} is a directory ; archiveFile not attempted",
-								newFile.getAbsolutePath());
+							log.debug("new File {} is a directory ; archiveFile not attempted. Returning null.",
+									newFileAbsolutePath);
 							SWTHelper.showError(Messages.DocHandle_MoveErrorCaption,
 								MessageFormat.format(Messages.DocHandle_MoveErrorDestIsDir, DestDir,
 									file.getName()));
 							return null;
 						} else {
+						
 							if (newFile.isFile()) {
-								log.debug("new File {} already exits ; archiveFile not attempted",
-									newFile.getAbsolutePath());
+								log.debug("new File {} already exits ; archiveFile not attempted. Returning null.",
+										newFileAbsolutePath);
 								SWTHelper.showError(Messages.DocHandle_MoveErrorCaption,
 									MessageFormat.format(Messages.DocHandle_MoveErrorDestIsFile,
 										DestDir, file.getName()));
 								return null;
 							} else {
-								log.debug("Will move file {} {} to: {} {}", file.getAbsolutePath(),
-									file.exists(), newFile.getAbsolutePath(), newFile.exists());
+								
+								log.debug("Will move file {} {} to: {} {}",
+										fileAbsolutePath, file.exists(),
+										newFileAbsolutePath, newFile.exists());
+							
 								if (Files.move(file.toPath(), newFile.toPath(),
 									REPLACE_EXISTING) != null) {
 									log.debug("Archived incoming file {} to: {}",
-										file.getAbsolutePath(), newFile.getAbsolutePath());
+											fileAbsolutePath, newFileAbsolutePath);
 									return newFile;
+								
 								} else {
 									log.debug("Failed archiveFile incoming file {} to: {}",
-										file.getAbsolutePath(), newFile.getAbsolutePath());
+										fileAbsolutePath, newFileAbsolutePath);
+									//TODO: Enable error message if auto archiving failed
 									// SWTHelper.showError(Messages.DocHandle_MoveErrorCaption,Messages.DocHandle_MoveError);
 									return null;
 								}
@@ -93,8 +136,9 @@ public class Utils {
 		} catch (Throwable throwable) {
 			ExHandler.handle(throwable);
 			if (file != null && newFile != null) {
-				log.debug("Exception while moving file {} {} to: {} {}", file.getAbsolutePath(),
-					file.exists(), newFile.getAbsolutePath(), newFile.exists());
+				log.debug("Exception while moving file {} {} to: {} {}",
+						fileAbsolutePath, file.exists(),
+						newFileAbsolutePath, newFile.exists());
 			} else {
 				log.debug("Exception while moving file [{}] {} src {} dest {}",
 					(file != null) ? file.getAbsolutePath() : "null",
@@ -103,6 +147,7 @@ public class Utils {
 			SWTHelper.showError(Messages.DocHandle_MoveErrorCaption, Messages.DocHandle_MoveError);
 			return null;
 		}
+		log.debug("archiveFile: ends, nRulesMatched = {}, returning newFile.", nRulesMatched);				
 		return newFile;
 	}
 	
@@ -116,7 +161,7 @@ public class Utils {
 		
 		log.debug("processFileElement: element_key=<{}> data <{}>", element_key, element_data);
 		StringBuffer element_data_processed = new StringBuffer();
-		Integer nCotfRules = Preferences.PREFERENCE_cotf_elements.length;
+		int nCotfRules = Preferences.PREFERENCE_cotf_elements.length;
 		for (int i = 0; i < nCotfRules; i++) {
 			if (Preferences.PREFERENCE_cotf_elements[i].equals(element_key)) {
 				if (element_key.contains("constant")) {
@@ -142,7 +187,7 @@ public class Utils {
 						return "";
 					}
 					
-					Integer num_digits = -1;
+					int num_digits = -1;
 					if (snum_digits != null) {
 						try {
 							num_digits = Integer.parseInt(snum_digits);

@@ -510,9 +510,8 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 				try {
 					byte[] bytes = Files.readAllBytes(Paths.get(file.toURI()));
 					// if we stored the file in the file system but decided
-					// later to store it in the
-					// database: copy the file from the file system to the
-					// database
+					// later to store it in the database:
+					// copy the file from the file system to the database
 					if (!Preferences.storeInFilesystem()) {
 						try {
 							setBinary(FLD_DOC, bytes);
@@ -654,6 +653,8 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 	public static List<DocHandle> assimilate(List<ImageData> images){
 		List<DocHandle> ret = new ArrayList<DocHandle>();
 		FileImportDialog fid = new FileImportDialog(Messages.DocHandle_scannedImageDialogCaption);
+		//TODO: Prüfen, ob hier im weiteren Verlauf auch
+		//noch ein Check einer Dateinamens-Länge nötig ist.
 		if (fid.open() == Dialog.OK) {
 			try {
 				Document pdf = new Document(PageSize.A4);
@@ -716,6 +717,7 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 		}
 
 		//20210326js: Add missing filename length check here, too.
+		//js: Check filename length to avoid lockup observed in MS Windows
 		Integer maxOmnivoreFilenameLength = Preferences.getOmnivoreMax_Filename_Length();
 		String nam = file.getName();
 		if (nam.length() > maxOmnivoreFilenameLength) {
@@ -748,12 +750,25 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 				if (category == null || category.length() == 0) {
 					category = DocHandle.getDefaultCategory().getCategoryName();
 				}
+				
 				DocHandle dh = new DocHandle(category, baos.toByteArray(), act, fid.originDate,
 					fid.title, file.getName(), fid.keywords);
+			
 				if (Preferences.getDateModifiable()) {
 					dh.setDate(fid.saveDate);
 					dh.setCreationDate(fid.originDate);
 				}
+
+				//20210326js: Add rule based auto archiving, here as well.
+				//TODO: Check if this is the right place to have Utils.archiveFile
+				//in this assimilate() method; 
+				//compare this with the other assimilate() method below.
+
+				//js: Automatisches Wegarchivieren des soeben importierten Files
+				//    unter Beachtung der Regeln (Muster, Ziel-Ordner) aus
+				//    PREF_SRC_PATTERN[] und PREF_DEST_DIR[]
+				Utils.archiveFile(file, dh);
+
 				return dh;
 			} catch (Exception ex) {
 				ExHandler.handle(ex);
@@ -786,7 +801,7 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 			return null;
 		}
 		
-
+		//js: Check filename length to avoid lockup observed in MS Windows
 		Integer maxOmnivoreFilenameLength = Preferences.getOmnivoreMax_Filename_Length();
 		String nam = file.getName();
 		if (nam.length() > maxOmnivoreFilenameLength) {
@@ -836,6 +851,10 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 					Messages.DocHandle_importErrorMessage2);
 				return null;
 			}
+			
+			//js: Automatisches Wegarchivieren des soeben importierten Files
+			//    unter Beachtung der Regeln (Muster, Ziel-Ordner) aus
+			//    PREF_SRC_PATTERN[] und PREF_DEST_DIR[]
 			Utils.archiveFile(file, dh);
 		}
 		return dh;
