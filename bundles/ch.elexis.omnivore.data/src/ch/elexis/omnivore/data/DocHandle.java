@@ -1,12 +1,15 @@
 /*******************************************************************************
  * Copyright (c) 2006-2016, G. Weirich and Elexis
+ * Portions (c) 2012-2021, Joerg M. Sigle (js, jsigle)
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    G. Weirich - initial implementation
+ *    G. Weirich  - initial implementation
+ *    Joerg Sigle - initial multi-rule auto archiving, meaningful filenames, filename length warning 
  *    <office@medevit.at> - Share a common base
  *******************************************************************************/
 
@@ -711,6 +714,15 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 				Messages.DocHandle_importErrorDirectoryText);
 			return null;
 		}
+
+		//20210326js: Add missing filename length check here, too.
+		Integer maxOmnivoreFilenameLength = Preferences.getOmnivoreMax_Filename_Length();
+		String nam = file.getName();
+		if (nam.length() > maxOmnivoreFilenameLength) {
+			SWTHelper.showError(Messages.DocHandle_readErrorCaption,
+					Messages.DocHandle_fileNameTooLong);
+			return null;
+		}
 		
 		FileImportDialog fid = new FileImportDialog(file.getName());
 		if (fid.open() == Dialog.OK) {
@@ -720,12 +732,18 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 				while ((in = bis.read()) != -1) {
 					baos.write(in);
 				}
+				
+				/*
+				 * TODO: 20210326js: This is redundant here. Was already checked above.
+				 * Review and remove if truly obsolete.
 				String nam = file.getName();
 				if (nam.length() > 255) {
 					SWTHelper.showError(Messages.DocHandle_readErrorCaption3,
 						Messages.DocHandle_fileNameTooLong);
 					return null;
 				}
+				 */
+				
 				String category = fid.category;
 				if (category == null || category.length() == 0) {
 					category = DocHandle.getDefaultCategory().getCategoryName();
@@ -753,6 +771,7 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 				Messages.DocHandle_pleaseSelectPatient);
 			return null;
 		}
+		
 		File file = new File(f);
 		if (!file.canRead()) {
 			SWTHelper.showError(Messages.DocHandle_cantReadCaption,
@@ -767,12 +786,13 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 			return null;
 		}
 		
+
 		Integer maxOmnivoreFilenameLength = Preferences.getOmnivoreMax_Filename_Length();
-		
 		String nam = file.getName();
 		if (nam.length() > maxOmnivoreFilenameLength) {
-			SWTHelper.showError(Messages.DocHandle_importErrorCaption, MessageFormat
-				.format(Messages.DocHandle_importErrorMessage, maxOmnivoreFilenameLength));
+			//20210326js: Use more specific message here.
+			SWTHelper.showError(Messages.DocHandle_readErrorCaption,
+					Messages.DocHandle_fileNameTooLong);
 			return null;
 		}
 		
@@ -792,13 +812,18 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 				while ((in = bis.read()) != -1) {
 					baos.write(in);
 				}
-				
+			
+				/*
+				 * TODO: 20210326js: This is redundant here. Was already checked above.
+				 * Review and remove if truly obsolete.
 				String fileName = file.getName();
 				if (fileName.length() > 255) {
 					SWTHelper.showError(Messages.DocHandle_readErrorCaption,
 						Messages.DocHandle_fileNameTooLong);
 					return null;
 				}
+				 */
+				
 				String category = fid.category;
 				if (category == null || category.length() == 0) {
 					category = DocHandle.getDefaultCategory().getCategoryName();
