@@ -502,6 +502,21 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		
 	}
 	
+	//TODO: 20210328js: Der Button "Anwenden und Schliessen" wirkt NICHT auf die beiden checkboxes
+	//"Spaltenbreite speichern" und "Sortierung speichern". Deren Einstellungen kann man nur mit
+	//separatem Drücken des Buttons "Anwenden" speichern (löst das nachfolgende performApply aus).
+	//Der direkt neben diesem liegend Button "Standardwerte wiederherstellen" hingegen setzt
+	//*alle* darüberliegenden Felder zurück, aber nicht die beiden vorgenannten checkboxes...
+	//Das ist beides sehr inkonsequent und kontra-intuitiv. Tatsächlich müsste der Button
+	//"Anwenden und Schliessen" auch die gewählten Einstellungen der beiden checkboxes
+	//ganz unten mit erfassen. Leider leider leider finde ich mal wieder nicht in endlicher
+	//Zeit heraus, wo nun die Funktionalität dieses Buttons implementiert ist - oder wie man
+	//sie auf die beiden übrigen checkboxes ausdehnt. Vermutlich steht das wieder in einem
+	//ganz anderen File für eine ganz andere Klasse etc. - darum möge das bitte upstream richten.
+	//P.S.: Nicht mal mit einer Suche nach "Anwenden und Schlie" über alle Files finde ich auch
+	//nur den Text dieses Buttons, das dürfte also ein Stock button eines Standarddialogs sein -
+	//und somit auch dessen Funktion "irgendwo" definiert, vielleicht auch mehrere Generationen
+	//weiter oben, und wäre hier mittels irgendeines Overrides zu erweitern...
 	@Override
 	protected void performApply(){
 		CoreHub.userCfg.set(PreferencePage.SAVE_COLUMN_WIDTH, btnSaveColumnWidths.getSelection());
@@ -511,5 +526,4 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		CoreHub.localCfg.flush();
 		super.performApply();
 	}
-	
 }

@@ -642,16 +642,22 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 	private void applySortDirection(){
 		String[] usrSortSettings = sortSettings.split(",");
 		
+		log.debug("OmnivoreView.java applySortDirection: CoreHub.userCfg.get(PreferencePage.SAVE_SORT_DIRECTION,false) = {}",CoreHub.userCfg.get(PreferencePage.SAVE_SORT_DIRECTION,false));
+
 		if (CoreHub.userCfg.get(PreferencePage.SAVE_SORT_DIRECTION, false)) {
 			String sortSet =
 				CoreHub.userCfg.get(PreferencePage.USR_SORT_DIRECTION_SETTINGS, sortSettings);
-			usrSortSettings = sortSet.split(",");
+			log.debug("OmnivoreView.java applySortDirection: sortSet = {}", sortSet);
+				usrSortSettings = sortSet.split(",");
 		}
+		log.debug("OmnivoreView.java applySortDirection: usrSortSettings: {} {} {} {}", usrSortSettings[0], usrSortSettings[1], usrSortSettings[2], usrSortSettings[3]);
 		
 		int propertyIdx = Integer.parseInt(usrSortSettings[0]);
 		int direction = Integer.parseInt(usrSortSettings[1]);
 		int catDirection = Integer.parseInt(usrSortSettings[2]);
 		bFlat = Boolean.valueOf(usrSortSettings[3]);
+		
+		log.debug("OmnivoreView.java applySortDirection: propertyIdx, direction, catDirection, bFlat {} {} {} {}", propertyIdx, direction, catDirection, bFlat);
 		
 		flatViewAction.setChecked(bFlat);
 		if (!bFlat) {
@@ -958,6 +964,7 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 		int propertyIdx = ovComparator.getPropertyIndex();
 		int direction = ovComparator.getDirectionDigit();
 		int catDirection = ovComparator.getCategoryDirection();
+		log.debug("OmnivoreView.java saveSortSettings(): propertyIdx, direction, catDirection, bFlat {} {} {} {}", propertyIdx, direction, catDirection, bFlat);
 		CoreHub.userCfg.set(PreferencePage.USR_SORT_DIRECTION_SETTINGS, propertyIdx + "," + direction
 			+ "," + catDirection + "," + bFlat);
 	}

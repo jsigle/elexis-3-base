@@ -46,7 +46,10 @@ public class Preferences {
 	 * reload the fs settings store
 	 */
 	private static void initGlobalConfig(){
+		log.debug("Preferences.java initGlobalConfig: is fsSettingsStore == null ? <{}>", (fsSettingsStore == null));
+			
 		if (fsSettingsStore == null) {
+			log.debug("Preferences.java initGlobalConfig: Workaround for bug ... 9501 running, probably resetting Omnivore user settings...");
 			
 			//  workaround for bug https://redmine.medelexis.ch/issues/9501 -> migrate old key to new key
 			CoreHubHelper.transformConfigKey("plugins/omnivore-direct/store_in_fs_global",
@@ -76,6 +79,8 @@ public class Preferences {
 			} else {
 				fsSettingsStore = new SettingsPreferenceStore(CoreHub.localCfg);
 			}
+		} else {
+			log.debug("Preferences.java initGlobalConfig: fsSettingsStore already there, workaround not running");
 		}
 	}
 	
