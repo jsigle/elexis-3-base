@@ -1,14 +1,67 @@
 /*******************************************************************************
- * Copyright (c) 2006-2011, G. Weirich and Elexis
+ * Copyright (c) 2006-2011, G. Weirich and Elexis; Portions Copyright (c) 2013-2021 Joerg Sigle
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
+ *    J. Sigle - Added drag support, so stored documents can be dragged into an e-mail
+ *               program (MS Outlook is more difficult to serve than Thunderbird)
  *    G. Weirich - initial implementation
  * 
  *******************************************************************************/
+
+//TODO: 20210327js - notiert in OmnivoreView.java + DocHandle.java.
+//
+//Ich hab jetzt nochmals in OmnivoreView.java + DocHandle.java
+//die beiden Varianten der dragSourceAdapter / dragSourceListener
+//von mir und in Niklaus' Version verglichen durch wechselweises Ein-/Aus-kommentieren. 
+//
+//Nachdem ich TextTransfer.getInstance() in Niklaus' Version herausgeworfen habe,
+//sind die anscheinend jetzt gleichwertig - wenn TextTransfer() enthalten ist,
+//dann kann man ein aus Omnivore herausgedraggtes File NICHT in den Text-Bereich
+//einer e-Mail in Outlook legen, sonst erscheint dort die String-Version eines Handlers o.ä. für das gedroppte Objekt, statt das File als Attachment an die Mail anzuhängen.
+//
+//Beide gehen dann, wenn man das herausgedraggte File in Outlook oberhalb des Bereichs
+//für die Adresse und unterhalb der Menüzeil fallen lässt - also rechts neben den
+//Accelerators, oder später wenn die Attachments-Liste da ist, dorthin - NUR NICHT
+//in den Menübereich oder in den Bereich für die Adressen hinein.
+//
+//Das gilt mit Niklaus' dragSourceAdapter in OmniVoreView.java,
+//und mit meinem execute() in DocHandle.java oder mit der einfacheren zuletzt
+//bei 3.x gesehenen execute() in DochHandle.java.
+//
+//Die einfachere execute() Function von Niklaus in DocHandle.java lässt
+//beim Öffnen der .jnt Documente (wo ich ja eine batch-Datei als Default
+//Application in Win7 verknüpft habe, damit es geht) eben das schwarze Fenster
+//der Batch-Datei offen; meine etwas längere Version macht das nicht - das ist
+//schöner und nützlicher. Darum lasse ich meine execute() Variante vorerst stehen.
+//
+//Die einfachere Variante von Niklaus ist allerdings mit dem nach Utils ausgelagerten
+//createTemporaryFile() kompatibel bzw. verwendet das; dafür beginnt sie mit
+//String ext = StringConstants.SPACE; //""; //$NON-NLS-1$
+//und kümmert sich anscheinend erst mal nicht um die korrekte Dateiendung;
+//d.h. das jetzt wieder restaurierte obtainExt() war nicht da und wurde nicht verwendet,
+//in der jetzt wieder hereingeholten Fassung wurde die passende Endung hingegen an
+//makeTempFile(String ext)  übergeben - auch in Utils.createNiceFilename(DocHandle dh)
+//wird das in keiner Weise nachgeholt.
+//
+//Insofern ist das nochmal ein Aufräumen mit genauem Nachschauen der erreichten Ergebnisse nötig.
+//Ich lasse jetzt beide Code-Teile drin (insbesondere auch meine ursprüngliche Fassung
+//aus Elexis 2.1.7js / Omnivore_js für die mit drag&drop-Support zu Outlook gekennzeichneten 
+//Teile aus 201305... und die dazugehörige ursprüngliche Erzeugung der sprechenden Dateinamen).
+//
+//Das muss schon deshalb reviewt werden, weil ja (schon damals notiertes) Ziel ist,
+//dass Omnivore UND msword_js (bzw.: noatext_js) und wer das auch immer sonst noch tun will
+//für das Erzeugen von aussagekräftigen temp-Dateinamen eben denselben Code in Utils.java
+//verwenden würden. Dann muss der Code dort aber auch die passenden Parameter-Typen akzeptieren
+//und möglicherweise eher mit der richtigen .ext als mit dem Titel (wie bei der von Niklaus
+//ausgelagerten Fassung) beginnen können - Bitte auch schauen, ob ich damals zwei verschiedene
+//Varianten hatte ebendafür, das ist aber NICHTS für jetzt und heute. /js
+//
+//Ich lasse jetzt MEINE Version des drag-supports und der execute() aktiv,
+//ändere aber die System.out.println() in log.debug() Ausgaben.
 
 package ch.elexis.omnivore.ui.views;
 
@@ -41,12 +94,22 @@ import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.dnd.DND;
+
+//20210327js: Niklaus' adopted version 
 import org.eclipse.swt.dnd.DragSourceAdapter;
+//20210328js: TextTransfer must NOT be enabled, otherwise dropping an entry
+//from omnivore into the e-Mail text window of MS Outlook will result in
+//an identifier string put into the e-Mail text (not desired) instead of
+//having the actual file added as an e-Mail attachment (desired).
+//import org.eclipse.swt.dnd.TextTransfer;
+
+//20210327js: js original Version
+import org.eclipse.swt.dnd.DragSourceListener;
+
 import org.eclipse.swt.dnd.DragSourceEvent;
 import org.eclipse.swt.dnd.DropTargetAdapter;
 import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.FileTransfer;
-import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
@@ -101,6 +164,8 @@ import ch.elexis.omnivore.ui.preferences.PreferencePage;
 /**
  * A class do receive documents by drag&drop. Documents are imported into the database and linked to
  * the selected patient. On double-click they are opened with their associated application.
+ * 201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+ * With this respect, thunderbird is easy - outlook is difficult to serve.
  */
 
 public class OmnivoreView extends ViewPart implements IRefreshable {
@@ -371,6 +436,7 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 		hookContextMenu();
 		hookDoubleClickAction();
 		contributeToActionBars();
+		
 		final Transfer[] dropTransferTypes = new Transfer[] {
 			FileTransfer.getInstance()
 		};
@@ -416,10 +482,33 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 			}
 			
 		});
+			
+		//TODO: 20210327js: Check whether this is really better:
+		//Revert the drag source support to what I had in 2.1.7js/omnivore_js -
+		//as this also works with MS Office targets like outlook.
+		//MAYBE both versions work in quite the same way - and it only depends on where
+		//you drop the file in Outlook 2003. If I drop it into the Area ABOVE the
+		//header fields, right of some accelerator-buttons, below the menu-bar,
+		//then it works fine with my original code.
+		//If I drop it BELOW the header field or even in the main text area,
+		//it won't work (not as expected, or not at all).
+		//In thunderbird, it's easier to hit the right drop area.
 		
+		//It should be tested whether the version supplied with 3.7 by Niklaus
+		//(which is very very similar apart from a few small changes) might
+		//work just as well.
+		
+		//Niklaus' adopted version
+		/*
 		final Transfer[] dragTransferTypes = new Transfer[] {
-			FileTransfer.getInstance(), TextTransfer.getInstance()
+			FileTransfer.getInstance()
+			//20210328js: TextTransfer must NOT be enabled, otherwise dropping an entry
+			//from omnivore into the e-Mail text window of MS Outlook will result in
+			//an identifier string put into the e-Mail text (not desired) instead of
+			//having the actual file added as an e-Mail attachment (desired).
+			//, TextTransfer.getInstance()
 		};
+
 		viewer.addDragSupport(DND.DROP_COPY, dragTransferTypes, new DragSourceAdapter() {
 			@Override
 			public void dragStart(DragSourceEvent event){
@@ -458,6 +547,67 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 				}
 			}
 		});
+		*/		
+		//20210327js: end of Niklaus' edited version for drag source support
+
+		//20210327js: Joerg's original version - this definitely works even with MS Outlook;
+		//The entry from omnivore must be dropped in outlook above the area
+		//with the To/CC/Subject input fields, just right of the accelerator buttons.
+		
+		final Transfer[] dragTransferTypes = new Transfer[] {
+				FileTransfer.getInstance()
+			};
+		//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+		viewer.addDragSupport(DND.DROP_COPY, dragTransferTypes, new DragSourceListener() {
+			@Override 
+			public void dragStart(DragSourceEvent event){
+				event.doit = true;
+				event.detail = DND.DROP_MOVE;
+				log.debug("js OmnivoreView.java: viewer.addDragSupport(): dragStart");
+			}
+
+			@Override
+			public void dragSetData(DragSourceEvent event){
+				
+				ISelection selection = viewer.getSelection();
+				Object obj = ((IStructuredSelection) selection).getFirstElement();
+
+				if (obj != null) {
+					DocHandle dh = (DocHandle) obj;
+					log.debug("js OmnivoreView.java: viewer.addDragSupport(): dh.getGUID() = <{}>", dh.getGUID());
+					log.debug("js OmnivoreView.java: viewer.addDragSupport(): dh.getTitle() = <{}>", dh.getTitle());
+					log.debug("js OmnivoreView.java: viewer.addDragSupport(): dh.getKeywords() = <{}>", dh.getKeywords());
+					// Dragging out a file means that we should supply as event.data
+					// an array of filenames. As of version 1.4.6, Omnivore supports selection of a single file only,
+					// so we need an array of size 1.
+					// TODO: Support selection of multiple files,
+					// for both dragging them out via giveAway(), and for opening via execute().
+					// selection has no element .length, but we can probably use:
+					// IStructuredSelection s = (IStructuredSelection) selection;
+					// Before that, however, Omnivore should first allow selection of multiple lines.
+					// String[] sourceFilenames = new String[s.size()];
+					// or even: selsize = ((IStructuredSelection) selection).size(); etc.
+					String[] sourceFilenames = new String[1];
+					sourceFilenames[0] = (String) dh.giveAway();
+					
+					log.debug("js OmnivoreView.java: viewer.addDragSupport(): sourceFilenames[0] = <{}>", sourceFilenames[0]);
+					event.data = sourceFilenames;
+				}
+				
+			}
+			
+			@Override
+			public void dragFinished(DragSourceEvent event){
+				log.debug("js OmnivoreView.java: viewer.addDragSupport(): dragFinished");
+				//if (event.detail == 1) {
+				//	cdaMessage.setAssignedToOmnivore();
+				//}
+			}
+		
+		});
+		//20210327js: end of Joerg's original version for drag source support
+		
+
 		// WORKAROUND to make visibleWhen contributions work
 		viewer.addSelectionChangedListener(new ISelectionChangedListener() {
 			@Override

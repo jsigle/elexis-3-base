@@ -1,8 +1,24 @@
+/*******************************************************************************
+ * Copyright (c) 2013-2021 J. Sigle
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    J. Sigle - added a preference page to omnivore to control  a new automatic archiving functionality  
+ *    N. Giger - separated parts of PreferencePage.java into Preferences.java and PreferenceConstants.java
+ *    J. Sigle - review re-including what was missed when adopting omnivore_js back into omnivore
+ *    
+ *******************************************************************************/
+
 package ch.elexis.omnivore.data;
 
 import static ch.elexis.omnivore.PreferenceConstants.BASEPATH;
 import static ch.elexis.omnivore.PreferenceConstants.DATE_MODIFIABLE;
+import static ch.elexis.omnivore.PreferenceConstants.OmnivoreMax_Filename_Length_Min;
 import static ch.elexis.omnivore.PreferenceConstants.OmnivoreMax_Filename_Length_Default;
+import static ch.elexis.omnivore.PreferenceConstants.OmnivoreMax_Filename_Length_Max;
 import static ch.elexis.omnivore.PreferenceConstants.PREFERENCE_DEST_DIR;
 import static ch.elexis.omnivore.PreferenceConstants.PREFERENCE_SRC_PATTERN;
 import static ch.elexis.omnivore.PreferenceConstants.PREF_DEST_DIR;
@@ -78,6 +94,65 @@ public class Preferences {
 	}
 	
 	// ----------------------------------------------------------------------------
+		/**
+		 * Returns a currently value from the preference store,
+		 * observing default settings and min/max settings for that parameter
+		 * 
+		 * Can be called with an already available preferenceStore.
+		 * If none is passed, one will be temporarily instantiated on the fly.
+		 * 
+		 * @return The requested integer parameter
+		 * 
+		 * @author Joerg Sigle
+		 */
+		
+		public static Integer getOmnivoreMax_Filename_Length(){
+			IPreferenceStore preferenceStore = new SettingsPreferenceStore(CoreHub.localCfg);
+			int ret = preferenceStore.getInt(PREF_MAX_FILENAME_LENGTH);
+					
+			if (ret == 0) {
+				ret = OmnivoreMax_Filename_Length_Default;
+				
+			if (ret < OmnivoreMax_Filename_Length_Min) {ret = OmnivoreMax_Filename_Length_Min;};
+			if (ret > OmnivoreMax_Filename_Length_Max) {ret = OmnivoreMax_Filename_Length_Max;};
+
+			}
+			return ret;
+			
+		//TODO: The follwoing alternative implementation was included in 2.1.7js / Omnivore_js
+		//but is now missing from Niklaus' port to Elexis 3.x
+		//Please review and check whether it is definitely obsolete -
+		//and then, why I did include it in my original implementation.
+		//One possible reason might be (but this is a simple guess) because
+		//might have given the preferences of my extended omnivore_js a different
+		//"preferenceStore" than the one used by the original omnivore,
+		//and Niklaus may have modified it to go into the "normal" PreferenceStore.
+		//But well, it's 8 years later now, so who knows...
+		//Original 2.1.7js / omnivore_js code is in:
+		//jsigle@blackbox  Sa M�r 27  15:28:44  /mnt/sdb3/Elexis-workspace/elexis-2.1.7-20130523/elexis-bootstrap-js-201712191036-last-20130605based-with-MSWord_js-as-used-by-JH-since-201701-before-gitpush  
+		//$ kate ./elexis-base/ch.elexis.omnivore/src/ch/elexis/omnivore/preferences/PreferencePage.java
+		//Current 3.7js / omnivore code is in:
+		///mnt/think3/c/Users/jsigle/git/elexis/3.7/git/./elexis-3-base/bundles/ch.elexis.omnivore.ui/src/ch/elexis/omnivore/ui/preferences/
+		//Preferences.java, PreferenceConstants.java, PreferencePage.java	
+		/*
+	    public static Integer getOmnivore_jsMax_Filename_Length(IPreferenceStore preferenceStore) {
+				
+			Integer Omnivore_jsMax_Filename_Length=Omnivore_jsMax_Filename_Length_Default;		//Start by establishing a valid default setting
+			try {
+				Omnivore_jsMax_Filename_Length=Integer.parseInt(preferenceStore.getString(PREF_MAX_FILENAME_LENGTH).trim());  //20130325js max filename length before error message is shown is now configurable
+			} catch (Throwable throwable) {
+			    //do not consume
+			}
+			if (Omnivore_jsMax_Filename_Length<Omnivore_jsMax_Filename_Length_Min) {Omnivore_jsMax_Filename_Length=Omnivore_jsMax_Filename_Length_Min;};
+			if (Omnivore_jsMax_Filename_Length>Omnivore_jsMax_Filename_Length_Max) {Omnivore_jsMax_Filename_Length=Omnivore_jsMax_Filename_Length_Max;};
+					
+			return Omnivore_jsMax_Filename_Length;
+		}
+		 */
+		
+		}
+		
+	// ----------------------------------------------------------------------------
 	/**
 	 * Returns the number of rules to process for automatic archiving
 	 * 
@@ -85,7 +160,7 @@ public class Preferences {
 	 */
 	
 	public static Integer getOmnivorenRulesForAutoArchiving(){
-		// For automatic archiving of incoming files:
+		// 20130325js: For automatic archiving of incoming files:
 		// The smaller number of entries available for Src and Dest determines
 		// how many rule editing field pairs are provided on the actual preferences page, and
 		// processed later on.
@@ -161,27 +236,6 @@ public class Preferences {
 		return CoreHub.localCfg.get(PREF_DEST_DIR[i], "").trim();
 	}
 	
-	// ----------------------------------------------------------------------------
-	/**
-	 * Returns a currently value from the preference store, observing default settings and min/max
-	 * settings for that parameter
-	 * 
-	 * Can be called with an already available preferenceStore. If none is passed, one will be
-	 * temporarily instantiated on the fly.
-	 * 
-	 * @return The requested integer parameter
-	 * 
-	 * @author Joerg Sigle
-	 */
-	
-	public static Integer getOmnivoreMax_Filename_Length(){
-		IPreferenceStore preferenceStore = new SettingsPreferenceStore(CoreHub.localCfg);
-		int ret = preferenceStore.getInt(PREF_MAX_FILENAME_LENGTH);
-		if (ret == 0) {
-			ret = OmnivoreMax_Filename_Length_Default;
-		}
-		return ret;
-	}
 	
 	public static void setFsSettingStore(SettingsPreferenceStore settingsPreferenceStore){
 		Preferences.fsSettingsStore = settingsPreferenceStore;
@@ -191,20 +245,20 @@ public class Preferences {
 		return fsSettingsStore;
 	}
 	
-	// Make the temporary filename configurable
+	// 20130411js: Make the temporary filename configurable
 	// which is generated to extract the document from the database for viewing.
 	// Thereby, simplify tasks like adding a document to an e-mail.
 	// For most elements noted below, we can set the maximum number of digits
 	// to be used (taken from the source from left); which character to add thereafter;
 	// and whether to fill leading digits by a given character.
-	// This makes a large number of options, so I construct the required preference store keys from
-	// arrays.
-	// Note: The DocHandle.getTitle() javadoc says that a document title in omnivore may contain 80
-	// chars.
-	// To enable users to copy that in full, I allow for a max of 80 chars to be specified as
-	// num_digits for *any* element.
-	// Using all elements to that extent will return filename that's vastly too long, but that will
-	// probably be handled elsewhere.
+	// This makes a large number of options, so I construct
+	// the required preference store keys from arrays.
+	// Note: The DocHandle.getTitle() javadoc says that a document title in omnivore
+	// may contain 80 chars.
+	// To enable users to copy that in full, I allow for a max of 80 chars to be
+	// specified as num_digits for *any* element.
+	// Using all elements to that extent will return filename that's vastly too long,
+	// but that will probably be handled elsewhere.
 	public static final Integer nPreferences_cotf_element_digits_max = 80;
 	public static final String PREFERENCE_COTF = "cotf_";
 	public static final String[] PREFERENCE_cotf_elements = {
@@ -213,25 +267,49 @@ public class Preferences {
 	public static final String[] PREFERENCE_cotf_parameters = {
 		"fill_leading_char", "num_digits", "add_trailing_char"
 	};
+	
 	// The following unwanted characters, and all below codePoint=32 will be cleaned in advance.
 	// Please see the getOmnivoreTemp_Filename_Element for details.
-	public static final String cotf_unwanted_chars = "[\\:/:*?()+,\';\"\r\t\n´`<>]";
+	// 20210327js: Slightly modified the string after comparison with the original 2.1.7js version.
+	// Original Version in 2.1.7js:
+	// static final String cotf_unwanted_chars="\\/:*?()+,;\"'�`"; 
+	// Last version found here:
+	// public static final String cotf_unwanted_chars = "[\\:/:*?()+,\';\"\r\t\n�`<>]";
+
+	// TODO: 20210327js: Apparently, Niklaus replaced my cleanStringFromUnwantedCharsAndTrim
+	// by a call to java.util.regex.Matcher in Utils.java - but not in all occasions.
+	// So for now, I leave Niklaus' Variant here in addition to my original one plus <>
+	// but we need to check whether his implementation does the same as mine.
+	// Especially for all code points below 32, I'm afraid his will only find \r\t\n
+	// CAVE: Whenever these lines are copy/pasted within Eclipse, Eclipse will duplicate EACH \ !!!
+	// To ensure no call is missed, I renamed the two constants to ..._jsorig and ..._ngregex.
+	// Maybe see (leftover in Niklaus' code in a comment below):
+	// eclipse-javadoc:%E2%98%82=ch.elexis.core.data/%5C/usr%5C/lib%5C/jvm%5C/java-8-oracle%5C/jre%5C/lib%5C/rt.jar%3Cjava.util.regex(Matcher.class%E2%98%83Matcher~quoteReplacement~Ljava.lang.String;%E2%98%82java.lang.String
+
+	public static final String cotf_unwanted_chars_jsorig = "\\/:*?()+,;\"'�`<>";
+	public static final String cotf_unwanted_chars_ngregex = "[\\:/:*?()+,\';\"\r\t\n�`<>]";
+	
 	// Dank Eclipse's mglw. etwas übermässiger "Optimierung" werden externalisierte Strings nun als
-	// Felder von Messges angesprochen -
-	// und nicht mehr wie zuvor über einen als String übergebenen key. Insofern muss ich wohl zu den
-	// obigen Arrays korrespondierende Arrays
-	// vorab erstellen, welche die jeweils zugehörigen Strings aus omnivore.Messages dann in eine
-	// definierte Reihenfolge bringen,
+	// Felder von Messges angesprochen - und nicht mehr wie zuvor über einen als String übergebenen key.
+	// Insofern muss ich wohl zu den obigen Arrays korrespondierende Arrays vorab erstellen, welche
+	// die jeweils zugehörigen Strings aus omnivore.Messages dann in eine definierte Reihenfolge bringen,
 	// in der ich sie unten auch wieder gerne erhalten würde. Einfach per Programm at runtime die
 	// keys generieren scheint nicht so leicht zu gehen.
 	public static final String[] PREFERENCE_cotf_elements_messages = {
-		Messages.Preferences_cotf_constant1, Messages.Preferences_cotf_pid,
-		Messages.Preferences_cotf_fn, Messages.Preferences_cotf_gn, Messages.Preferences_cotf_dob,
-		Messages.Preferences_cotf_dt, Messages.Preferences_cotf_dk, Messages.Preferences_cotf_dguid,
-		Messages.Preferences_cotf_random, Messages.Preferences_cotf_constant2
+		Messages.Preferences_cotf_constant1,
+		Messages.Preferences_cotf_pid,
+		Messages.Preferences_cotf_fn,
+		Messages.Preferences_cotf_gn,
+		Messages.Preferences_cotf_dob,
+		Messages.Preferences_cotf_dt,
+		Messages.Preferences_cotf_dk,
+		Messages.Preferences_cotf_dguid,
+		Messages.Preferences_cotf_random,
+		Messages.Preferences_cotf_constant2
 	};
 	public static final String[] PREFERENCE_cotf_parameters_messages = {
-		Messages.Preferences_cotf_fill_lead_char, Messages.Preferences_cotf_num_digits,
+		Messages.Preferences_cotf_fill_lead_char,
+		Messages.Preferences_cotf_num_digits,
 		Messages.Preferences_cotf_add_trail_char
 	};
 }

@@ -9,9 +9,65 @@
  *
  * Contributors:
  *    G. Weirich  - initial implementation
- *    Joerg Sigle - initial multi-rule auto archiving, meaningful filenames, filename length warning 
+ *    J. Sigle - Added configurable rule-based automatic archiving of imported files into multiple target directories    
+ *    J. Sigle - Added trim() to meta information fields after import of files
+ *    J. Sigle - Added more reasonable workflow and informative warning if configurable max filename length exceeded upon import
+ *    N. Giger - Reworked for adoption from 2.1.7js to 3.5
+ *    J. Sigle - Restored missed and lost functionality from 2.1.7js / omnivore_js to 3.7
  *    <office@medevit.at> - Share a common base
  *******************************************************************************/
+
+//TODO: 20210327js - notiert in OmnivoreView.java + DocHandle.java.
+//
+//Ich hab jetzt nochmals in OmnivoreView.java + DocHandle.java
+//die beiden Varianten der dragSourceAdapter / dragSourceListener
+//von mir und in Niklaus' Version verglichen durch wechselweises Ein-/Aus-kommentieren. 
+//
+//Nachdem ich TextTransfer.getInstance() in Niklaus' Version herausgeworfen habe,
+//sind die anscheinend jetzt gleichwertig - wenn TextTransfer() enthalten ist,
+//dann kann man ein aus Omnivore herausgedraggtes File NICHT in den Text-Bereich
+//einer e-Mail in Outlook legen, sonst erscheint dort die String-Version eines Handlers o.ä. für das gedroppte Objekt, statt das File als Attachment an die Mail anzuhängen.
+//
+//Beide gehen dann, wenn man das herausgedraggte File in Outlook oberhalb des Bereichs
+//für die Adresse und unterhalb der Menüzeil fallen lässt - also rechts neben den
+//Accelerators, oder später wenn die Attachments-Liste da ist, dorthin - NUR NICHT
+//in den Menübereich oder in den Bereich für die Adressen hinein.
+//
+//Das gilt mit Niklaus' dragSourceAdapter in OmniVoreView.java,
+//und mit meinem execute() in DocHandle.java oder mit der einfacheren zuletzt
+//bei 3.x gesehenen execute() in DochHandle.java.
+//
+//Die einfachere execute() Function von Niklaus in DocHandle.java lässt
+//beim Öffnen der .jnt Documente (wo ich ja eine batch-Datei als Default
+//Application in Win7 verknüpft habe, damit es geht) eben das schwarze Fenster
+//der Batch-Datei offen; meine etwas längere Version macht das nicht - das ist
+//schöner und nützlicher. Darum lasse ich meine execute() Variante vorerst stehen.
+//
+//Die einfachere Variante von Niklaus ist allerdings mit dem nach Utils ausgelagerten
+//createTemporaryFile() kompatibel bzw. verwendet das; dafür beginnt sie mit
+//String ext = StringConstants.SPACE; //""; //$NON-NLS-1$
+//und kümmert sich anscheinend erst mal nicht um die korrekte Dateiendung;
+//d.h. das jetzt wieder restaurierte obtainExt() war nicht da und wurde nicht verwendet,
+//in der jetzt wieder hereingeholten Fassung wurde die passende Endung hingegen an
+//makeTempFile(String ext)  übergeben - auch in Utils.createNiceFilename(DocHandle dh)
+//wird das in keiner Weise nachgeholt.
+//
+//Insofern ist das nochmal ein Aufräumen mit genauem Nachschauen der erreichten Ergebnisse nötig.
+//Ich lasse jetzt beide Code-Teile drin (insbesondere auch meine ursprüngliche Fassung
+//aus Elexis 2.1.7js / Omnivore_js für die mit drag&drop-Support zu Outlook gekennzeichneten 
+//Teile aus 201305... und die dazugehörige ursprüngliche Erzeugung der sprechenden Dateinamen).
+//
+//Das muss schon deshalb reviewt werden, weil ja (schon damals notiertes) Ziel ist,
+//dass Omnivore UND msword_js (bzw.: noatext_js) und wer das auch immer sonst noch tun will
+//für das Erzeugen von aussagekräftigen temp-Dateinamen eben denselben Code in Utils.java
+//verwenden würden. Dann muss der Code dort aber auch die passenden Parameter-Typen akzeptieren
+//und möglicherweise eher mit der richtigen .ext als mit dem Titel (wie bei der von Niklaus
+//ausgelagerten Fassung) beginnen können - Bitte auch schauen, ob ich damals zwei verschiedene
+//Varianten hatte ebendafür, das ist aber NICHTS für jetzt und heute. /js
+//
+//Ich lasse jetzt MEINE Version des drag-supports und der execute() aktiv,
+//ändere aber die System.out.println() in log.debug() Ausgaben.
+
 
 package ch.elexis.omnivore.data;
 
@@ -28,9 +84,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -358,7 +416,12 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 	}
 	
 	public static DocHandle load(String id){
-		return new DocHandle(id);
+		//TODO: 20210327js: Review this. Replaced by content from 2.1.7js/omnivore_js.
+		DocHandle ret = new DocHandle(id);
+		if (ret.exists()) {
+			return ret;
+		}
+		return null;
 	}
 	
 	private void store(byte[] doc){
@@ -533,11 +596,30 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 		}
 		return ret;
 	}
+
+	//TODO: 20210327js: This is the execute function found in 3.7.
+	// It looks less elaborate than my older one, because
+	// (a) It does not decode MimeTypes for the extension, takes it as given via getTitle()
+	// (b) It does not check whether the temp file could be written before trying to start a viewer
+	// So for now, I retire this one. But it remains an open ToDo,
+	// to check whether there is anyhting in favour of this one,
+	// OR to re-clean the temp file creation code:
+	// Now, I've just brought back the original from 2.1.7js / omnivore_js
+	// that accepts an extension, whereas Niklaus has moved similar code out
+	// to Utils.createNiceFilename(DocHandle dh) --- that will need some consolidation work.
+	//
+	// The new / old / other execute() is located further below.
+	// Original file: 
+	// jsigle@blackbox  Sa Mär 27  20:13:22  /mnt/sdb3/Elexis-workspace/elexis-2.1.7-20130523/elexis-bootstrap-js-201712191036-last-20130605based-with-MSWord_js-as-used-by-JH-since-201701-before-gitpush  
+	// $ kate ./elexis-base/ch.elexis.omnivore/src/ch/elexis/omnivore/data/DocHandle.java
 	
+	//20210327js: Simpler original execute() function:
+	/*
 	public void execute(){
 		try {
 			String ext = StringConstants.SPACE; //""; //$NON-NLS-1$
 			File temp = createTemporaryFile(getTitle());
+
 			log.debug("execute {} readable {}", temp.getAbsolutePath(), Files.isReadable(temp.toPath()));
 
 			Program proggie = Program.findProgram(ext);
@@ -555,6 +637,8 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 			SWTHelper.showError(Messages.DocHandle_runErrorHeading, ex.getMessage());
 		}
 	}
+	*/
+	//20210327js: End of simpler original modified execute() function:
 	
 	private String getFileExtension() {
 		String mimetype = get(FLD_MIMETYPE);
@@ -583,8 +667,12 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 			fileExtension = "";
 		}
 		
-		String config_temp_filename = Utils.createNiceFileName(this);
+		String config_temp_filename = Utils.createNiceFilename(this);
+		
+		log.debug("createTemporaryFile: config_temp_filename=<{}>", config_temp_filename );
+		
 		File temp = null;
+		
 		try {
 			Path tmpDir = Files.createTempDirectory("elexis");
 			if (config_temp_filename.length() > 0) {
@@ -593,9 +681,11 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 			} else {
 				// use title if given
 				if (title != null && !title.isEmpty()) {
-					// Remove all characters that shall not appear in the generated filename
+					// Remove all characters that shall not appear in the generated filename			
+					//TODO: 20210327js: See comments in PreferenceConstants.java, Utils.java etc.					
 					String cleanTitle = title.replaceAll(java.util.regex.Matcher
-							.quoteReplacement(Preferences.cotf_unwanted_chars), "_");
+							.quoteReplacement(Preferences.cotf_unwanted_chars_ngregex), "_");
+					
 					if (!cleanTitle.toLowerCase().contains("." + fileExtension.toLowerCase())) {
 						temp = new File(tmpDir.toString(), cleanTitle + "." + fileExtension);
 					} else {
@@ -918,4 +1008,193 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 		return true;
 	}
 	
+	//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+	//Therefore, separated the pre Omnivore_js-1.4.6 method execute() into multiple methods. 
+	public String obtainExt() {
+		String ext = ""; //$NON-NLS-1$
+		String typname = get("Mimetype"); //$NON-NLS-1$
+		int r = typname.lastIndexOf('.');
+		if (r == -1) {
+			typname = get("Titel"); //$NON-NLS-1$
+			r = typname.lastIndexOf('.');
+		}
+		
+		if (r != -1) {
+			ext = typname.substring(r + 1);
+		}
+		return ext;
+	}
+
+	//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+	//Therefore, separated the pre Omnivore_js-1.4.6 method execute() into multiple methods.
+
+	//TODO: CHECK HOW THIS OVERLAPS WIH NIKLAUS MOVING createNiceFileName(DocHandle dh) to Utils Java!
+	
+	public File makeTempFile(String ext){
+			try {
+	  			//20130411js: Make the temporary filename configurable
+				StringBuffer configured_temp_filename=new StringBuffer();
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				configured_temp_filename.append(Utils.getTempFilenameElement("constant1",""));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				configured_temp_filename.append(Utils.getTempFilenameElement("PID",getPatient().getKuerzel()));	//getPatient() liefert in etwa: ch.elexis.com@1234567; getPatient().getId() eine DB-ID; getPatient().getKuerzel() die Patientennummer.
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				configured_temp_filename.append(Utils.getTempFilenameElement("fn",getPatient().getName()));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				configured_temp_filename.append(Utils.getTempFilenameElement("gn",getPatient().getVorname()));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				configured_temp_filename.append(Utils.getTempFilenameElement("dob",getPatient().getGeburtsdatum()));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+
+				configured_temp_filename.append(Utils.getTempFilenameElement("dt",getTitle()));				//not more than 80 characters, laut javadoc
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				configured_temp_filename.append(Utils.getTempFilenameElement("dk",getKeywords()));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				//Da könnten auch noch Felder wie die Document Create Time etc. rein - siehe auch unten, die Methoden getPatient() etc.
+				
+				configured_temp_filename.append(Utils.getTempFilenameElement("dguid",getGUID()));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				
+				//N.B.: We may NOT REALLY assume for sure that another filename, derived from a createTempFile() result, where the random portion would be moved forward in the name, may also be guaranteed unique!
+				//So *if* we should use createTempFile() to obtain such a filename, we should put constant2 away from configured_temp_filename and put it in the portion provided with "ext", if a unique_temp_id was requested.
+				//And, we should probably not cut down the size of that portion, so it would be best to do nothing for that but offer a checkbox.
+				
+				//Es muss aber auch gar nicht mal unique sein - wenn die Datei schon existiert UND von einem anderen Prozess, z.B. Word, mit r/w geöffnet ist, erscheint ein sauberer Dialog mit einer Fehlermeldung. Wenn sie nicht benutzt wird, kann sie überschrieben werden.
+				
+				//Der Fall, dass hier auf einem Rechner / von einem User bei dem aus Daten erzeugten Filenamen zwei unterschiedliche Inhalte mit gleichem Namen im gleichen Tempdir gleichzeitig nur r/o geöffnet werden und einander in die Quere kommen, dürfte unwahrscheinlich sein.
+				//Wie wohl... vielleicht doch nicht. Wenn da jemand beim selben Patienten den Titel 2x einstellt nach: "Bericht Dr. Müller", und das dann den Filenamen liefert, ist wirklich alles gleich.
+				//So we should ... possibly really add some random portion; or use any other property of the file in that filename (recommendation: e.g. like in AnyQuest Server :-)  )
+				
+				//Ganz notfalls naoch ein Feld mit der Uhrzeit machen... oder die Temp-ID je nach eingestellten num_digits aus den clockticks speisen. Und das File mit try createn, notfalls wiederholen mit anderem clocktick - dann ist das so gut wie ein createTempFile().
+				//For now, I compute my own random portion - by creating a random BigInteger with a sufficient number of bits to represent  PreferencePage.nOmnivore_jsPREF_cotf_element_digits_max decimal digits.
+				//And I accept the low chance of getting an existing random part, i.e. I don't check the file is already there.
+				
+				SecureRandom random = new SecureRandom();
+				int  needed_bits = (int) Math.round(Math.ceil(Math.log(Preferences.nPreferences_cotf_element_digits_max)/Math.log(2)));
+				configured_temp_filename.append(Utils.getTempFilenameElement("random",new BigInteger(needed_bits , random).toString() ));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				
+				configured_temp_filename.append(Utils.getTempFilenameElement("constant2",""));
+				log.debug("DocHandle.makeTempFileString: configured_temp_filename = <{}>", configured_temp_filename.toString());
+				
+				File temp;
+				if (configured_temp_filename.length()>0) {
+					//The following file will have a unique variable part after the configured_temp_filename_and before the .ext,
+					//but will be located in the temporary directory.
+					File uniquetemp = File.createTempFile(configured_temp_filename.toString()+"_","."+ext); //$NON-NLS-1$ //$NON-NLS-2$
+					String temp_pathname=uniquetemp.getParent();
+					uniquetemp.delete(); 
+					
+					//remove the _unique variable part from the temporary filename and create a new file in the same directory as the previously automatically created unique temp file
+					log.debug("DocHandle.makeTempFileString: temp_pathname = <{}>", temp_pathname);
+					log.debug("DocHandle.makeTempFileString: configured_temp_filename.ext = <{}.{}>", configured_temp_filename , ext);
+					temp = new File(temp_pathname,configured_temp_filename+"."+ext);
+					temp.createNewFile();
+				}
+				else {
+					//if special rules for the filename are not configured, then generate it simply as before Omnivore_js Version 1.4.4
+					temp = File.createTempFile("omni_", "_vore." + ext); //$NON-NLS-1$ //$NON-NLS-2$
+				}
+				
+			return temp;	
+			} catch (Exception ex) {
+				ExHandler.handle(ex);
+				SWTHelper.showError(Messages.DocHandle_execError, ex.getMessage());
+				return null;
+			}
+		}
+		
+		//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+		//Therefore, separated the pre Omnivore_js-1.4.6 method execute() into multiple methods. 
+		public boolean writeDocToTempFile(File temp) {
+			if (temp == null) {return false;}
+			
+			try {
+				temp.deleteOnExit();
+				
+				byte[] b = getBinary("Doc"); //$NON-NLS-1$
+				if (b == null) {
+					SWTHelper.showError(Messages.DocHandle_readErrorCaption,
+							Messages.DocHandle_readError);
+					return false;
+				}
+				
+				FileOutputStream fos = new FileOutputStream(temp);
+				fos.write(b);
+				fos.close();
+				
+				return true;
+			} catch (Exception ex) {
+				ExHandler.handle(ex);
+				SWTHelper.showError(Messages.DocHandle_execError, ex.getMessage());
+			}
+			
+			return false;
+		}
+		
+		//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+		//Therefore, separated the pre Omnivore_js-1.4.6 method execute() into multiple methods. 
+
+		//This method tries to write selected content into a file, and launch a suitable program to display it.
+		//The temporary filename is constructed to be meaningfull, according to configured settings.
+		//The temporary file should exist until the program is closed. But its filename might be re-used,
+		//also depending upon settings for temporary filename generation.
+		
+		//20210327js: Joerg's original modified execute() function:
+		public void execute(){
+			try {
+				String ext = obtainExt();
+				File temp = makeTempFile(ext);
+				if (writeDocToTempFile(temp)) {	
+					Program proggie = Program.findProgram(ext);
+					if (proggie != null) {
+						proggie.execute(temp.getAbsolutePath());
+					} else {
+						if (Program.launch(temp.getAbsolutePath()) == false) {
+							Runtime.getRuntime().exec(temp.getAbsolutePath());
+						}
+					}
+				} else {
+					SWTHelper.showError(Messages.DocHandle_readErrorCaption,
+							Messages.DocHandle_readError);				
+				}
+			} catch (Exception ex) {
+				ExHandler.handle(ex);
+				SWTHelper.showError(Messages.DocHandle_execError, ex.getMessage());
+			}
+		}
+		//20210327js: End of Joerg's original modified execute() function:
+
+		//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
+		//Therefore, separated the pre Omnivore_js-1.4.6 method execute() into multiple methods...
+		//...and finally adding the method giveAway(), which needs the same preparations as execute()
+
+		//Omnivore_js version 1.4.6:
+		//This method tries to write selected content into a file, and returns the name of that file.
+		//Which in turn can be given away e.g. via drag&drop to an E-mail program etc.
+		//The temporary filename is constructed to be meaningfull, according to configured settings.
+		//The temporary file should exist until the program is closed. But its filename might be re-used,
+		//also depending upon settings for temporary filename generation.
+		public String giveAway(){
+			try {
+				String ext = obtainExt();
+				File temp = makeTempFile(ext);
+				if (writeDocToTempFile(temp)) {
+					
+					log.debug("js DocHandle.giveAwaz: Ready to giveAway the file: <{}>"+temp.getAbsolutePath());
+					log.debug("js DocHandle.giveAwaz: WARNING: temp.deleteOnExit() has been set above,");
+					log.debug("js DocHandle.giveAwaz: so the temp file will/may be deleted when the virtual machine exits.");
+					return temp.getAbsolutePath();
+					}
+				else {
+					SWTHelper.showError(Messages.DocHandle_readErrorCaption,
+						Messages.DocHandle_readError);				
+				}
+			} catch (Exception ex) {
+				ExHandler.handle(ex);
+				SWTHelper.showError(Messages.DocHandle_execError, ex.getMessage());
+			}
+			return null;
+		}
+
 }

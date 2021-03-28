@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013 J. Sigle; Copyright (c) 2006-2010, G. Weirich and Elexis
+ * Copyright (c) 2013-2021 J. Sigle; Copyright (c) 2006-2010, G. Weirich and Elexis
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,8 +8,18 @@
  * Contributors:
  *    J. Sigle - added a preference page to omnivore to control  a new automatic archiving functionality  
  *    G. Weirich and others - preference pages for other plugins, used as models for this one
+ *    N. Giger - separated parts of PreferencePage.java into Preferences.java and PreferenceConstants.java
+ *    J. Sigle - review re-including what was missed when adopting omnivore_js back into omnivore
  *    
  *******************************************************************************/
+
+//TODO: js: I wonder why Constants, Variables and other functionality for one module have been
+//split into three separate files - which are additionally located in different subtrees.
+//This way, it is very difficult to do diffs, or to find out what has been included from
+//the final version and what has been lost. It's also difficult to (re-)understand what's
+//happening, because some comments went into the other files, some where removed.
+//Moreover, an import... line needs exactly the same space as a definition of a constant -
+//and not even all thematically related constants have made it into a single constants-file...
 
 package ch.elexis.omnivore.ui.preferences;
 
@@ -68,7 +78,6 @@ import ch.elexis.omnivore.ui.jobs.OutsourceUiJob;
 public class PreferencePage extends FieldEditorPreferencePage implements IWorkbenchPreferencePage {
 	public static Logger log = LoggerFactory.getLogger("ch.elexis.omnivore.PreferencePage"); //$NON-NLS-1$
 	
-	
 	public static final String USR_COLUMN_WIDTH_SETTINGS = PREFBASE + "/columnwidths";
 	public static final String SAVE_COLUM_WIDTH = PREFBASE + "/savecolwidths";
 	
@@ -126,6 +135,19 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		// Warum auch immer...
 		
 		Group gAllOmnivorePrefs = new Group(getFieldEditorParent(), SWT.NONE);
+		
+		//TODO: 20210327js: There are major differences / missing lines from the
+		//latest version of Elexis 2.1.7js / omnivore_js to the version left over here.
+		//It is yet unclear whether this happened intentionally - as part of an
+		//integration of configurable settings related to my omnivore_js extensions
+		//into what had become of the mainstream omnivore by then - or whether things
+		//were unintentionally missed. PLEASE REVIEW ASAP.
+		//Sources:
+		//jsigle@blackbox  Sa Mär 27  15:39:44  /mnt/sdb3/Elexis-workspace/elexis-2.1.7-20130523/elexis-bootstrap-js-201712191036-last-20130605based-with-MSWord_js-as-used-by-JH-since-201701-before-gitpush  
+		//$ kate ./elexis-base/ch.elexis.omnivore/src/ch/elexis/omnivore/preferences/PreferencePage.java
+		//jsigle@blackbox  Sa Mär 27  15:28:44  /mnt/sdb3/Elexis-workspace/elexis-2.1.7-20130523/elexis-bootstrap-js-201712191036-last-20130605based-with-MSWord_js-as-used-by-JH-since-201701-before-gitpush  
+		//$ kompare ./elexis-base/ch.elexis.omnivore/src/ch/elexis/omnivore/preferences/PreferencePage.java /mnt/think3/c/Users/jsigle/git/elexis/3.7/git/./elexis-3-base/bundles/ch.elexis.omnivore.ui/src/ch/elexis/omnivore/ui/preferences/PreferencePage.java
+		//and also: Preferences.java, PreferenceContsants.java, Utils.java
 		
 		// getFieldEditorParent().setLayoutData(SWTHelper.getFillGridData(1,false,0,false));
 		
@@ -205,12 +227,12 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		
 		// ---
 		
-		// For automatic archiving of incoming files:
+		// 20130325js: For automatic archiving of incoming files:
 		// add field groups for display or editing of rule sets.
-		// First, we define a new group (that will visually appear as an outlined box) and give it a
-		// header like setText("Regel i");
-		// Then, within this group, we add one StringFieldEditor for the search pattern to be
-		// matched, and a DirectoryFieldEditor for the auto archiving target to be used.
+		// First, we define a new group (that will visually appear as an outlined box)
+		// and give it a header like setText("Regel i");
+		// Then, within this group, we add one StringFieldEditor for the search pattern to
+		// be matched, and a DirectoryFieldEditor for the auto archiving target to be used.
 		
 		Integer nAutoArchiveRules = Preferences.getOmnivorenRulesForAutoArchiving();
 		
@@ -220,8 +242,8 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		// gAutoArchiveRules.setLayoutData(SWTHelper.getFillGridData(1,true,nAutoArchiveRules,false));
 		
 		GridLayout gAutoArchiveRulesGridLayout = new GridLayout();
-		gAutoArchiveRulesGridLayout.numColumns = 1; // bestimmt die Anzahl der Spalten, in denen die
-		// Regeln innerhab des AutoArchiveRules containers angeordnet werden.
+		gAutoArchiveRulesGridLayout.numColumns = 1; // bestimmt die Anzahl der Spalten,
+		// in denen die Regeln innerhab des AutoArchiveRules containers angeordnet werden.
 		gAutoArchiveRules.setLayout(gAutoArchiveRulesGridLayout);
 		
 		GridData gAutoArchiveRulesGridLayoutData = new GridData();
@@ -233,38 +255,47 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		
 		for (int i = 0; i < nAutoArchiveRules; i++) {
 			
-			// Just to check whether the loop is actually used, even if nothing appears in the
-			// preference dialog:
+			// Just to check whether the loop is actually used,
+			// even if nothing appears in the preference dialog:
 			log.debug(PREF_SRC_PATTERN[i] + " : " + ch.elexis.omnivore.data.Messages.Preferences_SRC_PATTERN);
 			log.debug(PREF_DEST_DIR[i] + " : " + ch.elexis.omnivore.data.Messages.Preferences_DEST_DIR);
 			
+			//Simplified version: All auto Archive rules are directly located in the AutoArchiveRules group.
+			//addField(new StringFieldEditor(PREF_SRC_PATTERN[i], Messages.Omnivore_jsPREF_SRC_PATTERN, gAutoArchiveRules));
+			//addField(new DirectoryFieldEditor(PREF_DEST_DIR[i], Messages.Omnivore_jsPREF_DEST_DIR, gAutoArchiveRules));
+
+			//Correct version: Each AutoArchiveRule-Set is located in a group for that Rule.
+			//This only works when I use the GridLayout/GridData approach, but not when I use the SWTHelper.getFillGridData() approach.
+			
 			Group gAutoArchiveRule = new Group(gAutoArchiveRules, SWT.NONE);
+
+			////gAutoArchiveRule.setLayoutData(SWTHelper.getFillGridData(2,false,1,false));	//This shorthand makes groups-within-a-group completely disappear.
 			
 			GridLayout gAutoArchiveRuleGridLayout = new GridLayout();
-			gAutoArchiveRuleGridLayout.numColumns = 1; // bestimmt die Anzahl der Spalten fÃ¼r jede
-			// Regel: links label, rechts eingabefeld (ggf. mit Knopf), but: 1, 2, 3: no change.
+			gAutoArchiveRuleGridLayout.numColumns = 1; // bestimmt die Anzahl der Spalten fÃ¼r
+			// jede Regel: links label, rechts eingabefeld (ggf. mit Knopf), but: 1, 2, 3: no change.
 			gAutoArchiveRule.setLayout(gAutoArchiveRuleGridLayout);
 			
 			GridData gAutoArchiveRuleGridLayoutData = new GridData();
-			gAutoArchiveRuleGridLayoutData.grabExcessHorizontalSpace = true; // damit die Gruppe der
-			// Rules so breit ist, wie oben Label und Max_Filename_Length Eingabefeld zusammen.
+			gAutoArchiveRuleGridLayoutData.grabExcessHorizontalSpace = true; // damit die Gruppe
+			// der Rules so breit ist, wie oben Label und Max_Filename_Length Eingabefeld zusammen.
 			gAutoArchiveRuleGridLayoutData.horizontalAlignment = GridData.FILL;
 			gAutoArchiveRule.setLayoutData(gAutoArchiveRuleGridLayoutData);
 			
-			// Cave: The labels show 1-based rule numbers, although the actual array indizes are 0
-			// based.
-			gAutoArchiveRule.setText(ch.elexis.omnivore.data.Messages.Preferences_Rule + " " + (i + 1)); // The brackets are
-			// needed, or the string representations of i and 1 will both be added...
+			// Cave: The labels show 1-based rule numbers,
+			// although the actual array indizes are 0 based.
+			gAutoArchiveRule.setText(ch.elexis.omnivore.data.Messages.Preferences_Rule + " " + (i + 1));
+			// The brackets are needed, or the string representations of i and 1 will both be added...
 			
 			log.debug("i {} val {}", i, PREF_SRC_PATTERN[i]);
-			addField(new StringFieldEditor(PREF_SRC_PATTERN[i], ch.elexis.omnivore.data.Messages.Preferences_SRC_PATTERN,
-				gAutoArchiveRule));
-			addField(new DirectoryFieldEditor(PREF_DEST_DIR[i], ch.elexis.omnivore.data.Messages.Preferences_DEST_DIR,
-				gAutoArchiveRule));
+			addField(new StringFieldEditor(PREF_SRC_PATTERN[i],
+					ch.elexis.omnivore.data.Messages.Preferences_SRC_PATTERN, gAutoArchiveRule));
+			addField(new DirectoryFieldEditor(PREF_DEST_DIR[i],
+					ch.elexis.omnivore.data.Messages.Preferences_DEST_DIR, gAutoArchiveRule));
 		}
 		// ---
 		
-		// Make the temporary filename configurable
+		// 20130411js: Make the temporary filename configurable
 		// which is generated to extract the document from the database for viewing.
 		// Thereby, simplify tasks like adding a document to an e-mail.
 		// For most elements noted below, we can set the maximum number of digits
@@ -278,8 +309,8 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 		// lines: each of the configurable elements of the prospective temporary filename.
 		// But such a simple thing is apparently not so simple to make using the PreferencePage
 		// class.
-		// So instead, I add a new group for each configurable element, including each of the 3
-		// parameters.
+		// So instead, I add a new group for each configurable element,
+		// including each of the 3 parameters.
 		
 		Integer nCotfRules = Preferences.PREFERENCE_cotf_elements.length;
 		
@@ -304,6 +335,8 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 			
 			Group gCotfRule = new Group(gCotfRules, SWT.NONE);
 			
+			//gCotfRule.setLayoutData(SWTHelper.getFillGridData(2,false,2,false));	//This would probably make groups-within-group completely disappear.
+				
 			gCotfRule.setLayout(new FillLayout());
 			GridLayout gCotfRuleGridLayout = new GridLayout();
 			gCotfRuleGridLayout.numColumns = 6;
@@ -314,9 +347,28 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 			gCotfRuleGridLayoutData.horizontalAlignment = GridData.FILL;
 			gCotfRule.setLayoutData(gCotfRuleGridLayoutData);
 			
+			//System.out.println("Messages.Omnivore_jsPREF_cotf_"+PREFERENCE_cotf_elements[i]);
+			
+			//gCotfRule.setText(PREFERENCE_cotf_elements[i]);	//The brackets are needed, or the string representations of i and 1 will both be added...
+			
+			//addField(new StringFieldEditor(PREFERENCE_BRANCH+PREFERENCE_COTF+PREFERENCE_cotf_elements[i]+"_"+PREFERENCE_cotf_parameters[0],PREFERENCE_cotf_parameters[0],gCotfRule));
+			//addField(new StringFieldEditor(PREFERENCE_BRANCH+PREFERENCE_COTF+PREFERENCE_cotf_elements[i]+"_"+PREFERENCE_cotf_parameters[1],PREFERENCE_cotf_parameters[1],gCotfRule));
+			//addField(new StringFieldEditor(PREFERENCE_BRANCH+PREFERENCE_COTF+PREFERENCE_cotf_elements[i]+"_"+PREFERENCE_cotf_parameters[2],PREFERENCE_cotf_parameters[2],gCotfRule));
+			
+			//Das hier geht leider nicht so einfach:
+			//gCotfRule.setText(getObject("Messages.Omnivore_jsPREF_cotf_"+PREFERENCE_cotf_elements[i]));
 			gCotfRule.setText(Preferences.PREFERENCE_cotf_elements_messages[i]);
-			String prefName = PREFBASE + Preferences.PREFERENCE_COTF
-					+ Preferences.PREFERENCE_cotf_elements[i] + "_" + Preferences.PREFERENCE_cotf_parameters[1];
+			
+			//addField(new StringFieldEditor(PREFERENCE_BRANCH+PREFERENCE_COTF+PREFERENCE_cotf_elements[i]+"_"+PREFERENCE_cotf_parameters[0],Messages.Omnivore_jsPREF_cotf_fill_leading_char,gCotfRule));
+			//addField(new StringFieldEditor(PREFERENCE_BRANCH+PREFERENCE_COTF+PREFERENCE_cotf_elements[i]+"_"+PREFERENCE_cotf_parameters[1],Messages.Omnivore_jsPREF_cotf_num_digits,gCotfRule));
+			//addField(new StringFieldEditor(PREFERENCE_BRANCH+PREFERENCE_COTF+PREFERENCE_cotf_elements[i]+"_"+PREFERENCE_cotf_parameters[2],Messages.Omnivore_jsPREF_cotf_add_trail_char,gCotfRule));
+			
+			//TODO: 20210327js: Once again, significant changes from the original 2.1.7js based code follow.
+			//Moreover, readability and comparability of code is completely crippled by the ca. 80-char line length limit.
+			//Sorry, need to review this some other time.
+			
+			String prefName = PREFBASE + Preferences.PREFERENCE_COTF + Preferences.PREFERENCE_cotf_elements[i] + "_" + Preferences.PREFERENCE_cotf_parameters[1];
+			
 			log.debug("Add  {} val {}", i, prefName);
 			
 			if (Preferences.PREFERENCE_cotf_elements[i].contains("constant")) {
@@ -324,22 +376,28 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 				gCotfRuleGridLayoutData.verticalAlignment = GridData.BEGINNING;
 				addField(new StringFieldEditor(prefName, "", 10, gCotfRule));
 			} else {
-				String str0 = PREFBASE + Preferences.PREFERENCE_COTF
-						+ Preferences.PREFERENCE_cotf_elements[i] + "_" + Preferences.PREFERENCE_cotf_parameters[0];
-				String str2 = PREFBASE + Preferences.PREFERENCE_COTF
-						+ Preferences.PREFERENCE_cotf_elements[i] + "_" + Preferences.PREFERENCE_cotf_parameters[2];
+				String str0 = PREFBASE + Preferences.PREFERENCE_COTF + Preferences.PREFERENCE_cotf_elements[i] + "_" + Preferences.PREFERENCE_cotf_parameters[0];
+				String str2 = PREFBASE + Preferences.PREFERENCE_COTF + Preferences.PREFERENCE_cotf_elements[i] + "_" + Preferences.PREFERENCE_cotf_parameters[2];
 				log.debug("{}: keyl {} {} {} {}", i, str0, prefName, str2);
 				log.debug("val {} {} {} {}", Preferences.PREFERENCE_cotf_parameters_messages[0],
 					Preferences.PREFERENCE_cotf_parameters_messages[1],
 					Preferences.PREFERENCE_cotf_parameters_messages[2]);
-				addField(new StringFieldEditor(str0,
-					Preferences.PREFERENCE_cotf_parameters_messages[0], 10, gCotfRule));
-				addField(new StringFieldEditor(prefName,
-					Preferences.PREFERENCE_cotf_parameters_messages[1], 10, gCotfRule));
-				addField(new StringFieldEditor(str2,
-					Preferences.PREFERENCE_cotf_parameters_messages[2], 10, gCotfRule));
+				addField(new StringFieldEditor(str0, Preferences.PREFERENCE_cotf_parameters_messages[0], 10, gCotfRule));
+				addField(new StringFieldEditor(prefName, Preferences.PREFERENCE_cotf_parameters_messages[1], 10, gCotfRule));
+				addField(new StringFieldEditor(str2, Preferences.PREFERENCE_cotf_parameters_messages[2], 10, gCotfRule));
 			}
 		}
+		/*
+		public static final Integer nOmnivore_jsPREF_cotf_element_digits_min=0;
+			public static final Integer nOmnivore_jsPREF_cotf_element_digits_max=255;
+			public static final String PREFERENCE_cotf_elements={"PID", "given_name", "family_name", "date_of_birth", "document_title", "constant", "dguid", "random"};
+			public static final String PREFERENCE_cotf_parameters={"fill_lead_char", "num_digits", "add_trail_char"};
+			 */
+		
+		//Doesn't help here.
+		//adjustGridLayout();
+	
+		//20210327js: The remainder of this method is unrelated to omnivore_js:
 		
 		enableOutsourceButton();
 		
@@ -435,7 +493,7 @@ public class PreferencePage extends FieldEditorPreferencePage implements IWorkbe
 	
 	@Override
 	public void init(IWorkbench workbench){
-		// For automatic archiving of incoming files:
+		// 20130325js: For automatic archiving of incoming files:
 		// construct the keys to the elexis preference store from a fixed header plus rule number:
 		for (Integer i = 0; i < Preferences.getOmnivorenRulesForAutoArchiving(); i++) {
 			PREF_SRC_PATTERN[i] = PREFERENCE_SRC_PATTERN + i.toString().trim(); //If this source pattern is found in the filename...
