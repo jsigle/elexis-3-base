@@ -184,7 +184,7 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 		};
 	private final String colWidth = "20,80,80,150,500";
 	private final String sortSettings = "0,1,-1,false";
-	private boolean bFlat = false;
+	private boolean bFlat;
 	private String searchTitle = "";
 	private String searchKW = "";
 	// ISource selectedSource = null;
@@ -720,12 +720,17 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 	private void fillLocalPullDown(IMenuManager manager){
 		MenuManager mnSources = new MenuManager(Messages.OmnivoreView_dataSources);
 		manager.add(importAction);
+		manager.add(editAction);
+		manager.add(deleteAction);
+		manager.add(exportAction);
+		manager.add(flatViewAction);
 	}
 	
 	private void fillContextMenu(IMenuManager manager){
 		
 		manager.add(editAction);
 		manager.add(deleteAction);
+		manager.add(exportAction);
 		
 		// manager.add(action2);
 		// Other plug-ins can contribute there actions here
