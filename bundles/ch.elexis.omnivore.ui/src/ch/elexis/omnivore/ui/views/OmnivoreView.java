@@ -680,7 +680,7 @@ public class OmnivoreView extends ViewPart implements IRefreshable {
 	private void applyUsersColumnWidthSetting(){
 		TreeColumn[] treeColumns = table.getColumns();
 		String[] userColWidth = colWidth.split(",");
-		if (CoreHub.userCfg.get(PreferencePage.SAVE_COLUM_WIDTH, false)) {
+		if (CoreHub.userCfg.get(PreferencePage.SAVE_COLUMN_WIDTH, false)) {
 			String ucw = CoreHub.userCfg.get(PreferencePage.USR_COLUMN_WIDTH_SETTINGS, colWidth);
 			userColWidth = ucw.split(",");
 		}
