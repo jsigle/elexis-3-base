@@ -1027,6 +1027,9 @@ public class DocHandle extends PersistentObject implements IOpaqueDocument {
 
 	//201305280110js: Add drag support, so stored documents can be dragged into an e-mail program.
 	//Therefore, separated the pre Omnivore_js-1.4.6 method execute() into multiple methods.
+	
+	//Here: Create a "talking" = informative temporary filename, put together
+	//from the building blocks specified on the Omnivore configuration page.
 
 	//TODO: CHECK HOW THIS OVERLAPS WIH NIKLAUS MOVING createNiceFileName(DocHandle dh) to Utils Java!
 	
