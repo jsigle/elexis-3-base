@@ -111,19 +111,19 @@ public class AgendaWeek extends BaseView {
 	
 	public String[] getDisplayedDays(){
 		TimeTool ttMonday = Activator.getDefault().getActDate();
-		log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
+		//log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
 
 		ttMonday.set(TimeTool.DAY_OF_WEEK, TimeTool.MONDAY);
-		log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
+		//log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
 
 		ttMonday.chop(3);
-		log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
+		//log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
 		
-		log.debug("getDisplayDays: CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW) = {}",CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW));
-		log.debug("getDisplayDays: TimeTool.Wochentage.length) = {}",TimeTool.Wochentage.length);
-		for (int i=0; i< TimeTool.Wochentage.length; i++) {
-			log.debug("getDisplayDays: TimeTool.Wochentage[{}]) = {}",i,TimeTool.Wochentage[i]);
-		}
+		//log.debug("getDisplayDays: CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW) = {}",CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW));
+		//log.debug("getDisplayDays: TimeTool.Wochentage.length) = {}",TimeTool.Wochentage.length);
+		//for (int i=0; i< TimeTool.Wochentage.length; i++) {
+		//	log.debug("getDisplayDays: TimeTool.Wochentage[{}]) = {}",i,TimeTool.Wochentage[i]);
+		//}
 		
 		//20210331js: Der folgende Code soll wohl einen String mit Datums-Angaben liefern,
 		//welcher diejenigen Tage bezeichnet, deren Wochentagsbezeichnung in einer
@@ -139,10 +139,10 @@ public class AgendaWeek extends BaseView {
 			log.debug("getDisplayDays: ERROR: resources == null, therefore returning new String[0]");
 			return new String[0];
 		} else {
-			log.debug("getDisplayDays: resources <> null...");
-			log.debug("getDisplayDays: resources: "+resources);
-			log.debug("getDisplayDays: resources.length() = {}",resources.length());
-			log.debug("getDisplayDays: building ArrayList<String> ret in order to return that...");
+			//log.debug("getDisplayDays: resources <> null...");
+			//log.debug("getDisplayDays: resources: "+resources);
+			//log.debug("getDisplayDays: resources.length() = {}",resources.length());
+			//log.debug("getDisplayDays: building ArrayList<String> ret in order to return that...");
 			
 			ArrayList<String> ret = new ArrayList<String>(resources.length());			
 			
@@ -160,13 +160,13 @@ public class AgendaWeek extends BaseView {
 			//TODO: Please check for other places in the program that could be affected in a similar way.
 			//Similar problems might persist anywhere else where TimeTool is being used.
 			for (TimeTool.DAYS wd : TimeTool.DAYS.values()) {
-				log.debug("getDisplayDays: Processing wd.toString() = {}",wd.toString());
-				log.debug("getDisplayDays: Processing wd.fullName = {}",wd.fullName.toString());
+				//log.debug("getDisplayDays: Processing wd.toString() = {}",wd.toString());
+				//log.debug("getDisplayDays: Processing wd.fullName = {}",wd.fullName.toString());
 				String wdStrUc = wd.toString().toUpperCase();
 				String wdFnStrUc = wd.fullName.toString().toUpperCase();
 				if ((resources.indexOf(wdStrUc) != -1) 										
 					|| (resources.indexOf(wdFnStrUc) != -1)) {
-					log.debug("getDisplayDays: adding {} to array ret... ",ttMonday.toString(TimeTool.DATE_COMPACT));
+					//log.debug("getDisplayDays: adding {} to array ret... ",ttMonday.toString(TimeTool.DATE_COMPACT));
 					ret.add(ttMonday.toString(TimeTool.DATE_COMPACT));
 				}
 				ttMonday.addDays(1);

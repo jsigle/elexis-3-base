@@ -136,18 +136,16 @@ public class ProportionalSheet extends Composite implements IAgendaLayout {
 	synchronized void refresh(){
 		String[] days = view.getDisplayedDays(); //The problem is in view.getDisplayedDays();
 		
-		log.debug("refresh: days.length: "+days.length); 
-		for (int i = 0; i < days.length; i++) {
-			log.debug("ProportionalSheet: refresh: days[{}]: {}",i,days[i]);
-		}
+		//log.debug("refresh: days.length: "+days.length); 
+		//for (int i = 0; i < days.length; i++) {
+		//	log.debug("ProportionalSheet: refresh: days[{}]: {}",i,days[i]);
+		//}
 
-		Query<Termin> qbe = new Query<Termin>(Termin.class);
-		
-		log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
+		Query<Termin> qbe = new Query<Termin>(Termin.class);	
+		//log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
 		
 		qbe.add("BeiWem", "=", Activator.getDefault().getActResource());
-		
-		log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
+		//log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
 		
 		if (days.length > 0) {
 			//20210331js: For reasons yet unknown, days may be = 0
@@ -169,7 +167,7 @@ public class ProportionalSheet extends Composite implements IAgendaLayout {
 				}
 			qbe.endGroup();
 
-			log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
+			//log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
 			
 			List<Termin> apps = qbe.execute();
 			// clear old TerminLabel list
