@@ -29,6 +29,8 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.ScrollBar;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ch.elexis.actions.Activator;
 import ch.elexis.agenda.data.Termin;
@@ -44,6 +46,7 @@ import ch.rgw.tools.StringTool;
 import ch.rgw.tools.TimeTool;
 
 public class ProportionalSheet extends Composite implements IAgendaLayout {
+	public static Logger log = LoggerFactory.getLogger("ch.elexis.agenda.ProportionalSheet"); //$NON-NLS-1$
 	static final int LEFT_OFFSET_DEFAULT = 20;
 	static final int PADDING_DEFAULT = 5;
 	
@@ -131,37 +134,68 @@ public class ProportionalSheet extends Composite implements IAgendaLayout {
 	}
 	
 	synchronized void refresh(){
-		String[] days = view.getDisplayedDays();
+		String[] days = view.getDisplayedDays(); //The problem is in view.getDisplayedDays();
+		
+		log.debug("refresh: days.length: "+days.length); 
+		for (int i = 0; i < days.length; i++) {
+			log.debug("ProportionalSheet: refresh: days[{}]: {}",i,days[i]);
+		}
+
 		Query<Termin> qbe = new Query<Termin>(Termin.class);
+		
+		log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
+		
 		qbe.add("BeiWem", "=", Activator.getDefault().getActResource());
-		qbe.startGroup();
-		for (String date : days) {
-			qbe.add("Tag", "=", date);
-			qbe.or();
-		}
-		qbe.endGroup();
-		List<Termin> apps = qbe.execute();
-		// clear old TerminLabel list
-		if (tlabels != null) {
-			for (TerminLabel terminLabel : tlabels) {
-				terminLabel.dispose();
+		
+		log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
+		
+		if (days.length > 0) {
+			//20210331js: For reasons yet unknown, days may be = 0
+			//and adding this would cause an invalid SQL query like:
+			//SELECT ID FROM AGNTERMINE WHERE deleted='0' AND  Bereich = 'jh' AND  ();
+			//NOT adding days in the same case does NOT cause an invalid SQL query,
+			//but to a query that returns all entries for the selected user.
+			//In that case, it just may take some time for the SQL query to return,
+			//and *very long* for the Agenda display to actually display all the
+			//returned entries. Even longer than till the next refresh.
+			//20210331js: The underlying problem came from Weekdays appearing
+			//in different languages at various places. I've now hardened
+			//AgendaWeek.java getDisplayedDays(), but similar problems might
+			//persist anywhere else where TimeTool is being used.
+			qbe.startGroup();
+				for (String date : days) {
+					qbe.add("Tag", "=", date);
+					qbe.or();
+				}
+			qbe.endGroup();
+
+			log.debug("refresh: Query qbe.getActualQuery(): "+qbe.getActualQuery()); 
+			
+			List<Termin> apps = qbe.execute();
+			// clear old TerminLabel list
+			if (tlabels != null) {
+				for (TerminLabel terminLabel : tlabels) {
+					terminLabel.dispose();
+				}
+				tlabels.clear();
+			} else {
+				tlabels = new LinkedList<TerminLabel>();
 			}
-			tlabels.clear();
+			// populate new TerminLabel list
+			for (Termin termin : apps) {
+				String dStart = termin.getDay();
+				int idx = StringTool.getIndex(days, dStart);
+				if (idx != -1) {
+					TerminLabel terminLabel = new TerminLabel(this);
+					terminLabel.set(termin, idx);
+					tlabels.add(terminLabel);
+				}
+			}
+			TerminLabel.checkAllCollisions(tlabels);
+			recalc();	
 		} else {
-			tlabels = new LinkedList<TerminLabel>();
+			log.debug("refresh: ERROR: The days limiter for this query is empty. NOT querying database and NOT refreshing the display.");  
 		}
-		// populate new TerminLabel list
-		for (Termin termin : apps) {
-			String dStart = termin.getDay();
-			int idx = StringTool.getIndex(days, dStart);
-			if (idx != -1) {
-				TerminLabel terminLabel = new TerminLabel(this);
-				terminLabel.set(termin, idx);
-				tlabels.add(terminLabel);
-			}
-		}
-		TerminLabel.checkAllCollisions(tlabels);
-		recalc();
 	}
 	
 	void recalc(){

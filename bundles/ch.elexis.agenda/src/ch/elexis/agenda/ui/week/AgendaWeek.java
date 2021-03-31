@@ -28,6 +28,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ch.elexis.actions.Activator;
 import ch.elexis.agenda.data.IPlannable;
@@ -41,6 +43,7 @@ import ch.rgw.tools.StringTool;
 import ch.rgw.tools.TimeTool;
 
 public class AgendaWeek extends BaseView {
+	public static Logger log = LoggerFactory.getLogger("ch.elexis.agenda.AgendaWeek"); //$NON-NLS-1$
 	private IAction weekFwdAction, weekBackAction, showCalendarAction;
 	
 	private ProportionalSheet sheet;
@@ -108,21 +111,68 @@ public class AgendaWeek extends BaseView {
 	
 	public String[] getDisplayedDays(){
 		TimeTool ttMonday = Activator.getDefault().getActDate();
+		log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
+
 		ttMonday.set(TimeTool.DAY_OF_WEEK, TimeTool.MONDAY);
+		log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
+
 		ttMonday.chop(3);
+		log.debug("getDisplayDays: ttMonday: "+ttMonday.dump()); 
+		
+		log.debug("getDisplayDays: CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW) = {}",CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW));
+		log.debug("getDisplayDays: TimeTool.Wochentage.length) = {}",TimeTool.Wochentage.length);
+		for (int i=0; i< TimeTool.Wochentage.length; i++) {
+			log.debug("getDisplayDays: TimeTool.Wochentage[{}]) = {}",i,TimeTool.Wochentage[i]);
+		}
+		
+		//20210331js: Der folgende Code soll wohl einen String mit Datums-Angaben liefern,
+		//welcher diejenigen Tage bezeichnet, deren Wochentagsbezeichnung in einer
+		//konfigurierbaren Liste von in der Agenda anzuzeigenden Wochentagen enthalten ist,
+		//- beginnend frühestens mit dem Montag ab eingestelltem Datum(sbereich).
+		//- NUUUUN ja.
+		//I convert the setting to upper case on the fly to exclude a possible problem for matching below.
 		String resources =
-			CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW,
-				StringTool.join(TimeTool.Wochentage, ",")); //$NON-NLS-1$
+		CoreHub.localCfg.get(PreferenceConstants.AG_DAYSTOSHOW,
+				StringTool.join(TimeTool.Wochentage, ",")).toUpperCase(); //$NON-NLS-1$
+		
 		if (resources == null) {
+			log.debug("getDisplayDays: ERROR: resources == null, therefore returning new String[0]");
 			return new String[0];
 		} else {
-			ArrayList<String> ret = new ArrayList<String>(resources.length());
+			log.debug("getDisplayDays: resources <> null...");
+			log.debug("getDisplayDays: resources: "+resources);
+			log.debug("getDisplayDays: resources.length() = {}",resources.length());
+			log.debug("getDisplayDays: building ArrayList<String> ret in order to return that...");
+			
+			ArrayList<String> ret = new ArrayList<String>(resources.length());			
+			
+			//20210331js: Enhanced the string comparison to better tolerate
+			//mismatching languages and upperCase/lowerCase:
+			//On this system, the original code produced no match because here and now:
+			//ressources contained:		Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday
+			//							(maybe due to a missing country specific configuration setting)
+			//TimeTool.DAYS.values()[0].FullName.toString() was:	"Sonntag" (etc. for the others)
+			//TimeTool.DAYS.values()[0].toString() was:				"SUNDAY" (etc. for the others)
+			//and the comparison would only search for "Sonntag" in "Monday,Tuesday,Wednesday,...Sunday",
+			//which would naturally deliver zero hits.
+			//This would lead to ProportionalSheet.java refresh() getting nothing for it's days variable,
+			//and constructing an invalid SQL query, rendering the Wochenanzeige completely dysfunctional.
+			//TODO: Please check for other places in the program that could be affected in a similar way.
+			//Similar problems might persist anywhere else where TimeTool is being used.
 			for (TimeTool.DAYS wd : TimeTool.DAYS.values()) {
-				if (resources.indexOf(wd.fullName) != -1) {
+				log.debug("getDisplayDays: Processing wd.toString() = {}",wd.toString());
+				log.debug("getDisplayDays: Processing wd.fullName = {}",wd.fullName.toString());
+				String wdStrUc = wd.toString().toUpperCase();
+				String wdFnStrUc = wd.fullName.toString().toUpperCase();
+				if ((resources.indexOf(wdStrUc) != -1) 										
+					|| (resources.indexOf(wdFnStrUc) != -1)) {
+					log.debug("getDisplayDays: adding {} to array ret... ",ttMonday.toString(TimeTool.DATE_COMPACT));
 					ret.add(ttMonday.toString(TimeTool.DATE_COMPACT));
 				}
 				ttMonday.addDays(1);
 			}
+
+			log.debug("getDisplayDays: about to return ret.toArray(new String[0])...");
 			return ret.toArray(new String[0]);
 		}
 	}
