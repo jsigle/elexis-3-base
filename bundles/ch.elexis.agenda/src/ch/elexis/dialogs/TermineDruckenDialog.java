@@ -90,11 +90,27 @@ public class TermineDruckenDialog extends TitleAreaDialog implements ICallback {
 				.append(day.toString(TimeTool.DATE_GER)).append(" - ")
 				.append(Plannables.getStartTimeAsString(t)).append("\n");
 		}
+		
+		//Transfer a list future appointments into the opened docuent  
 		text.replace("\\[Termine\\]", sb.toString());
+		
+		//Show a dialog asking whether the document shall be printed - if ok pressed, then print
 		if (text.getPlugin().isDirectOutput()) {
-			text.getPlugin().print(null, null, true);
+			//Print the document, do NOT weit for the printout to complete.
+			text.getPlugin().print(null, null, false);
+			
 			okPressed();
 		}
+		
+		//20210329js: Ensure that an external window containing an open document
+		//is closed before Elexis closes, so that no orphan documents remain
+		//which could trick the user into editing something about to be lost.
+		//text.getPlugin().dispose();
+		//
+		//NOPE, we can't do this here. The above dialog "Terminliste ausdrucken?" is NON-BLOCKING,
+		//so the list would disappear immediately.
+		//The only possibility is to let the list open until the user closes it manually. 
+
 		return ret;
 	}
 	
