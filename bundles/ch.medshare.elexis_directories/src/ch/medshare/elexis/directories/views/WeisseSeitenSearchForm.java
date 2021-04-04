@@ -15,6 +15,7 @@
 package ch.medshare.elexis.directories.views;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Vector;
 
@@ -103,12 +104,36 @@ public class WeisseSeitenSearchForm extends Composite {
 	 * Liest Kontaktinformationen anhand der Kriterien name & geo.
 	 * Bei der Suche wird die Kontakteliste und der InfoText abgefüllt.
 	 */
-	private void readKontakte(final String name, final String geo){
+	private void readKontakte(String name, String geo){
 		final Cursor backupCursor = getShell().getCursor();
 		final Cursor waitCursor = new Cursor(getShell().getDisplay(), SWT.CURSOR_WAIT);
 		
 		getShell().setCursor(waitCursor);
 		
+		//20210404js: Ensure that umlauts and accented characters etc. are properly handled.
+		//Before, they went into the search URL directly - I don't know whether this ever used to work
+		//but currently, www.local.ch doesn't execute a search with Umlauts in the URL parameters.
+		//On the other hand, www.local.ch would currently extend a search to related targets;
+		//i.e. searching for "Mueller" also returns hits for "Müller" etc.
+		//Anyway. The following code ensures that searches for "Müller" will also be handled:
+		//System.out.println("readKontakte name: "+name); 
+		try {
+			name=java.net.URLEncoder.encode(name, "UTF-8");
+		} catch (UnsupportedEncodingException e1) {
+			// TODO Auto-generated catch block
+			// e1.printStackTrace();
+		}
+		//System.out.println("readKontakte name: "+name); 
+
+		//System.out.println("readKontakte geo: "+geo); 
+		try {
+			geo=java.net.URLEncoder.encode(geo, "UTF-8");
+		} catch (UnsupportedEncodingException e1) {
+			// TODO Auto-generated catch block
+			// e1.printStackTrace();
+		}
+		//System.out.println("readKontakte geo: "+geo); 
+
 		kontakte.clear();	//20210402js: With multipage processing, we can't simply replace any more... 
 		int getPage = 0;
 		int maxPageLimit=20;
