@@ -17,10 +17,12 @@ public class Messages extends NLS {
 	public static String WeisseSeitenSearchForm_label_Ort;
 	public static String WeisseSeitenSearchForm_label_werWasWo;
 	public static String WeisseSeitenSearchView_header_Adresse;
+	public static String WeisseSeitenSearchView_header_akTitel;
 	public static String WeisseSeitenSearchView_header_Name;
 	public static String WeisseSeitenSearchView_header_Ort;
 	public static String WeisseSeitenSearchView_header_Plz;
 	public static String WeisseSeitenSearchView_header_Tel;
+	public static String WeisseSeitenSearchView_header_eMail;
 	public static String WeisseSeitenSearchView_header_Zusatz;
 	public static String WeisseSeitenSearchView_popup_newKontakt;
 	public static String WeisseSeitenSearchView_popup_newPatient;

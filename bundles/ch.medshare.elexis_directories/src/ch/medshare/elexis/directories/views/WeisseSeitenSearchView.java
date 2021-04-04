@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, medshare and Elexis
+ * Copyright (c) 2007, medshare and Elexis, Portions (c) 2021, Joerg M. Sigle (js, jsigle)
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  *
  * Contributors:
  *    M. Imhof - initial implementation
+ *    J. Sigle - added automatic extraction and handling of academic titles
  *    
  *******************************************************************************/
 
@@ -64,16 +65,24 @@ public class WeisseSeitenSearchView extends ViewPart {
 		public String getColumnText(Object element, int columnIndex){
 			KontaktEntry entry = (KontaktEntry) element;
 			switch (columnIndex) {
+			//20210403js: Bring the title back into the display,
+			//which is now separately delivered from the extractor 
 			case 0:
-				return entry.getName() + " " + entry.getVorname(); //$NON-NLS-1$
+				return entry.getTitel();
 			case 1:
-				return entry.getAdresse();
+				return entry.getName() + " " + entry.getVorname(); //$NON-NLS-1$
 			case 2:
-				return entry.getPlz();
+				return entry.getAdresse();
 			case 3:
-				return entry.getOrt();
+				return entry.getPlz();
 			case 4:
+				return entry.getOrt();
+			case 5:
 				return entry.getTelefon();
+			//20210403js: Bring e-Mail into the display
+			//which is now also delivered from the extractor 
+			case 6:
+				return entry.getEmail();
 			default:
 				return "-"; //$NON-NLS-1$
 			}
@@ -97,7 +106,9 @@ public class WeisseSeitenSearchView extends ViewPart {
 	class KontaktSorter extends ViewerSorter {
 		public int compare(final Viewer viewer, final Object e1, final Object e2){
 			String s1 = ((KontaktEntry) e1).getName() + ((KontaktEntry) e1).getVorname();
-			String s2 = ((KontaktEntry) e2).getName() + ((KontaktEntry) e1).getVorname();
+			//20210403js: Probably wrong reference to e1 in the original line:
+			//String s2 = ((KontaktEntry) e2).getName() + ((KontaktEntry) e1).getVorname();
+			String s2 = ((KontaktEntry) e2).getName() + ((KontaktEntry) e2).getVorname();
 			return s1.compareTo(s2);
 		}
 	}
@@ -133,7 +144,13 @@ public class WeisseSeitenSearchView extends ViewPart {
 		
 		Table table =
 			new Table(listArea, SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.MULTI | SWT.BORDER);
-		TableColumn nameTc = new TableColumn(table, SWT.CENTER);
+		//20210403js: Bring the title back into the display,
+		//which is now separately delivered from the extractor 
+		//All allignments changed to SWT.LEFT
+		TableColumn akTitelTc = new TableColumn(table, SWT.LEFT);
+		akTitelTc.setText(Messages.WeisseSeitenSearchView_header_akTitel); //$NON-NLS-1$
+		akTitelTc.setWidth(100);
+		TableColumn nameTc = new TableColumn(table, SWT.LEFT);
 		nameTc.setText(Messages.WeisseSeitenSearchView_header_Name); //$NON-NLS-1$
 		nameTc.setWidth(250);
 		TableColumn adrTc = new TableColumn(table, SWT.LEFT);
@@ -148,6 +165,9 @@ public class WeisseSeitenSearchView extends ViewPart {
 		TableColumn telTc = new TableColumn(table, SWT.LEFT);
 		telTc.setText(Messages.WeisseSeitenSearchView_header_Tel); //$NON-NLS-1$
 		telTc.setWidth(90);
+		TableColumn emailTc = new TableColumn(table, SWT.LEFT);
+		emailTc.setText(Messages.WeisseSeitenSearchView_header_eMail); //$NON-NLS-1$
+		emailTc.setWidth(200);
 		
 		table.setLayoutData(SWTHelper.getFillGridData(1, true, 1, true));
 		table.setHeaderVisible(true);

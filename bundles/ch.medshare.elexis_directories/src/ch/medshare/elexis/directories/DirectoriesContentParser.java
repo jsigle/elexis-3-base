@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Portions copyright (c) 2010, 2012 Jörg Sigle www.jsigle.com and portions copyright (c) 2007, medshare and Elexis
+ * Portions copyright (c) 2010, 2012-2021 Jörg Sigle www.jsigle.com and portions copyright (c) 2007, medshare and Elexis
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -7,6 +7,22 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
+ *    J. Sigle - 20210402 www.jsigle.com - after years? of non-functionality
+ *    			 Adopted to change from http://tel.local.ch to https://www.local.ch
+ *               Adopted to (once again) different result format
+ *				 Added ability to retrieve and process multiple consecutive result pages
+ *    			 (e.g. Schmidt in Basel has 72 results delivered in 8 pages...)
+ *    			 Added rather well working and robust extraction of Titles from
+ *    			 the nameVornameText for List results.
+ *               Reworked extraction of eMail addresses from for List results.
+ *               Added display of title and eMail in newly added columns in search result.
+ *               Added field to enter (academic) Title in KontaktErfassenDialog,
+ *               Added passing of title and eMail address from search result to
+ *               the KontaktErfassenDialog and onwards into the database - thereby
+ *               removing the need to postpone entering a title to a seperate step
+ *               through the KontaktDetails View.
+ *               Added further documentation regarding the data gathering and extraction. 
+ *    
  *    J. Sigle - 20120712-20120713 www.jsigle.com
  *    			 On about 2012-07-11 (or 2012-07-04?), tel.local.ch vastly changed their delivery formats again.
  *    			   This rendered this plugin completely dysfunctional.
@@ -171,7 +187,7 @@ import ch.elexis.core.ui.util.SWTHelper;
 
 /**
  * 
- * @author jsigle (comment and 20101213, 20120712 update only)
+ * @author jsigle (comment and 20101213, 20120712 update only, 20210402 update)
  * 
  *         The service http://tel.local.ch provides a user-interface for WWW browsers with a lot of
  *         additional content around the desired address/contact information. The address/contact
@@ -194,15 +210,74 @@ import ch.elexis.core.ui.util.SWTHelper;
  *         Also note that neither &mode=text nor &range=all do currently change the result which I
  *         observe.
  * 
+ *         20210402js: Some time (years?) ago, the plugin stopped working again.
+ *         I'm trying to revive it now.
+ *         Search requests to http://tel.local.ch receive a redirect page.
+ *         Search requests are redirected to https://www.local.ch
+ *         Search requests to this address receive generally searchable results -
+ *         but I just noted that search requests to https://mobile.local.ch get MUCH smaller responses -
+ *         mainly usable content, and much less overhead.
+ *         So I'm attempting to parse these instead.
+ *         
  * 
  */
 public class DirectoriesContentParser extends HtmlParser {
 	
-	private static final String ADR_LISTENTRY_TAG = "<div class='row local-listing'"; //$NON-NLS-1$
-	private static final String ADR_SINGLEDETAILENTRY_TAG = "<div class='eight columns details'";; //$NON-NLS-1$
+	//20210402js: old version:
+	//private static final String ADR_LISTENTRY_TAG = "<div class='row local-listing'"; //$NON-NLS-1$
+	//private static final String ADR_SINGLEDETAILENTRY_TAG = "<div class='eight columns details'";; //$NON-NLS-1$
+	//private static String metaPLZTrunc = "";
+	//private static String metaOrtTrunc = "";
+	//private static String metaStrasseTrunc = "";
+	//private final Logger logger = LoggerFactory.getLogger("ch.medshare.elexis_directories");
+	//20210402js: new version:
+	
+	//20210402js: mobile.local.ch only:
+	//private static final String ADR_LISTENTRY_TAG = "<div class='";
+	//It's really:   <div class='busresult'>    for the first address 
+	//and            <div class='resresult'>    for all following addresses.  
+	//Luckily, there are no   <div class='   lines before the first address in the mobile.local.ch result.
+	//private static final String ADR_SINGLEDETAILENTRY_TAG = "NOT YET LOOKED AT IN DETAIL";; //$NON-NLS-1$
+
+	//20210402js: www.local.ch only: 
+	//Die folgenden Strings werden verwendet, um zu identifizieren...
+	
+	//...den nächsten Eintrag in einem als Liste hereinkommenden Suchergebnis mit mehreren Treffern:
+	//
+	//Please note:
+	//This string is used to identify a web page with HTML text received as search result
+	//as a list of multiple search hits,
+	//as well as identifying a point BEFORE all extractable data of EACH entry in this list,
+	//and AFTER all extractable data of the preceding entry in this list.
+	//(I.e. something like the beginning of an entry on the list).
+	//
+	//So this string should:
+	//- occur in the HTML source code of a search result when this provides a list of multiple results,
+	//- NOT occur in the HTML source code of a search result that provides a detailed entry from a single search hit,
+	//- occur at the beginning or rather close to the beginning of each result entry in this list,
+	//  before the first extractable information of that entry
+	private static final String ADR_LISTENTRY_TAG = "<div class='js-entry-card-container row";
+	
+	//...den Beginn des Eintras in einem als Detail-Eintrag hereinkommenden Suchergebnis mit EINEM Treffer:
+	//
+	//Please note:
+	//This string is used to identify a web page with HTML text received as search result
+	//as a detailed entry for a single search hit, 
+	//as well as identifying a point BEFORE all extractable data of THIS_SINGLE entry.
+	//
+	//So this string should:
+	//- NOT occur in the HTML source code of a search result when this provides a list of multiple results,
+	//- occur in the HTML source code of a search result that provides a detailed entry from a single search hit,
+	//- occur at the beginning or rather close to the beginning of extractable information of that entry.
+	private static final String ADR_SINGLEDETAILENTRY_TAG = "<div class='container' itemscope";
+
+	//20210404js: These fields aren't available in this way any more:
+	/*
 	private static String metaPLZTrunc = "";
 	private static String metaOrtTrunc = "";
 	private static String metaStrasseTrunc = "";
+	*/
+	
 	private final Logger logger = LoggerFactory.getLogger("ch.medshare.elexis_directories");
 	
 	public DirectoriesContentParser(String htmlText){
@@ -265,42 +340,252 @@ public class DirectoriesContentParser extends HtmlParser {
 	public String getSearchInfo(){
 		reset();
 		
-		logger.debug("DirectoriesContentParser.java: getSearchInfo() running...\n");
-		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...\n");
+		logger.debug("DirectoriesContentParser.java: getSearchInfo() running...");
+		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...");
 		
-		String searchInfoText = extract("<title>", "</title>");
+		//20210402js: NICHT das <title> tag hierfür auswerten, da kommt nämlich aktuell:
+		//<title>Schmidt in Basel im Telefonbuch &gt;&gt; Jetzt finden! - local.ch
+		//</title>
+		//String searchInfoText = extract("<title>", "</title>");
+
+		//20210402js: SONDERN folgendes tag auswerten:
+		//<h1 class='search-header-results-title'>72 Ergebnisse für Schmidt in basel</h1>
+		String searchInfoText = extract("<h1 class='search-header-results-title'>", "</h1>").trim();
 		
-		if (searchInfoText == null) {
-			return "";//$NON-NLS-1$
+		
+		if (searchInfoText == null)	{
+			logger.debug("DirectoriesContentParser.java: getSearchInfo(): searchInfoText IS NULL!");
+			return "";//$NON-NLS-1$}
+		} else {
+			logger.debug("DirectoriesContentParser.java: getSearchInfo(): searchInfoText != null");
+			logger.debug("DirectoriesContentParser.java: getSearchInfo(): \"" + searchInfoText + "\"\n");
+			
+			return searchInfoText
+			//20210402js: alte Version des nachträglichen Putzens, das braucht man aber nicht, ich lasse nur das .trim():
+			//.replace("<strong class=\"what\">", "")
+			//.replace("<strong class=\"where\">", "").replace("<strong>", "").replace("</strong>", "").trim(); //$NON-NLS-1$ //$NON-NLS-2$
+			.trim();
 		}
+	}
+	
+	/**
+	 * Check whether the page contains a valid link indicating there are more pages with additional search results
+	 * 
+	 */
+	public boolean checkForMorePages(){
+		reset();
 		
-		logger.debug("DirectoriesContentParser.java: getSearchInfo(): searchInfoText != null\n");
-		logger.debug("DirectoriesContentParser.java: getSearchInfo(): \""
-			+ searchInfoText + "\"\n\n");
+		logger.debug("DirectoriesContentParser.java: checkForMorePages() running...");
+		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...");
 		
-		return searchInfoText
-			.replace("<strong class=\"what\">", "")
-			.replace("<strong class=\"where\">", "").replace("<strong>", "").replace("</strong>", "").trim(); //$NON-NLS-1$ //$NON-NLS-2$
+		//20210402js: If there is any next page,
+		//there may be one or more numbered links to various page numbers -
+		//but quite certainly, at there will be one link to the "next" page:
+		//<a rel="next" class="pagination-link" href="/de/q/basel/Schmidt?mode=text&amp;page=2"><span>&raquo;</span>
+		String searchLinkToNextPage = extract("<a rel=\"next\" class=\"pagination-link\" href=", "\"><span>&raquo;</span>").trim();
+
+		if ( (searchLinkToNextPage == null) || (searchLinkToNextPage.length()<5) ) {
+			logger.debug("DirectoriesContentParser.java: checkForMorePages(): searchLinkToNextPage IS NULL or too short!");	
+			return false;			//there is no next page
+		}	else {
+			logger.debug("DirectoriesContentParser.java: checkForMorePages(): searchLinkToNextPage != null");
+			logger.debug("DirectoriesContentParser.java: checkForMorePages(): \"" + searchLinkToNextPage + "\"\n");	
+			return true;		//there is a next page, so get it as well...
+		}
 	}
 	
 	/**
 	 * 
-	 * Extrahiert Informationen aus dem retournierten Html. Anhand der <div class="xxx"> kann
-	 * entschieden werden, ob es sich um eine Liste oder einen Detaileintrag (mit Telefon handelt).
+	 * Extrahiert einen akademischen oder professionellen Titel
+	 * aus einem String mit Titel. Name Vorname.
 	 * 
-	 * Detaileinträge: "adrNameDetLev0", "adrNameDetLev1", "adrNameDetLev3" Nur Detaileintrag
-	 * "adrNameDetLev2" darf nicht extrahiert werden
+	 * @parameter
+	 *  nameVornameText	- the String containing Titel. Name Vorname
+	 *  A common Titel. like Dr. or med. or Dipl. or biol.
+	 *  is separated from the following text by a dot (+-space)
+	 *  and the first space in title. name usually occurs after Titel.
+	 *  
+	 *  Multiple Titel. items are supported, like Dr. med.
+	 *  
+	 *  The algorithm also recognizes initials (by the fact
+	 *  that a title. needs at least 2 chars before the dot, and
+	 *  a middle initial has the first dot after the first space).
+	 *  
+	 *  At the beginning, there is special recognition and handling
+	 *  handling for the title "PD" which has no dot but only a space
+	 *  after it.
+	 *  
+	 *  !!! The function returns a string with the title (trimmed)
+	 *  The supplied parameter nameVornameText is left unchanged,
+	 *  so the calling code must later on remove the number of chars
+	 *  found in the returned title from its own variable nameVornameText,
+	 *  afterwards trimming it to remove any remaining spaces as well. !!!
+	 *  
+	 * @return
+	 *  Everything that's considered "title." or "titles..." and was
+	 *  removed from the beginning of the string. The string supplied
+	 *  as parameter is stripped from that information.
+	 *  
+	 * @author jsigle
 	 * 
-	 * Listeinträge: "adrListLev0", "adrListLev1", "adrListLev3" Nur Listeintrag "adrListLev0Cat"
-	 * darf nicht extrahiert werden
+	 * Z.B. aus PD Dr. med. Hamacher Jürg
+	 */
+	public String extractAkTitelFromNameVornameText(String nameVornameText) {
+		String akTitel = "";
+		if (nameVornameText != null && nameVornameText.length() > 0)
+			{
+			nameVornameText = nameVornameText.trim();
+
+			//20210404js: Moved here from extractKontakt()...
+			//20131127js: Replace something like "Dr. med. PD" by "PD Dr. med."
+			nameVornameText = nameVornameText.replace("Dr. med. PD", "PD Dr. med.");
+			nameVornameText = nameVornameText.replace("Dr. med. Prof.", "Prof. Dr. med.");
+			
+			//Special Handling for a leading title PD, which has no dot after it.
+			//Test this by searching for Wer, Was, Tel. = "PD", Ort = "Bern" :-)
+			if ( nameVornameText.substring(0,3).equals("PD ") ) {
+				akTitel = "PD ";
+				nameVornameText = nameVornameText.substring(3);
+			}
+			
+			//Find the last dot in nameVornameText which can be reached from the beginning
+			//by advancing up to 10 chars from the beginning or the previous
+			int posRightmostDot = -1;
+			
+			int posNextDot = nameVornameText.indexOf(".",posRightmostDot+1);
+			//The first dot must appear before the first space -
+			//so we're not fooled by (looking for Schmidt in Basel) 
+			//Wyss H.+M. (-Schmidt)
+			//or
+			//Zinng G., D., D., und B. (-Schmidt)
+			if ( posNextDot < nameVornameText.indexOf(" ") ) { 
+				while ( (posNextDot > posRightmostDot + 2)	//if a dot was found in the last pass
+															//at least 3 chars right of posRightMostDot
+															//(which includes at least 3 chars into the String)
+					  && (posNextDot < posRightmostDot+10 ) ) {		//and not more than 10 chars further into the String,
+						//The distance limits should ensure that we really find and extract
+						//even complex professional or academic titles, like Prof. Dr. med. Dr. hon. Max Muster,
+						//but are not fooled by Initials like Erwin A. Doolittle or E.T.A. Hoffmann,
+						//and leave alone the more extravagant things like Theo Archibald Luminous, III. Lord of Canterbury :-) 
+					posRightmostDot = posNextDot;			//update the position of the last found dot
+					posNextDot = nameVornameText.indexOf(".",posRightmostDot+1);//check for another one
+				}
+				//We also want to leave at least 2 characters after our supposedly identified "title" for name and given name
+				//- and yes, some Asian names like Li Hu or names without first name like Dr. Wu don't need very much more.
+				if ( ( posRightmostDot > 1 ) && ( posRightmostDot < nameVornameText.length() - 3 ) ) {
+					//use an additive term because akTitel might already contain "PD "
+					akTitel = akTitel + nameVornameText.substring(0,posRightmostDot+1).trim();
+				}
+			}
+		}
+
+		return akTitel;
+	}
+	
+	
+	/**
+	 * 
+	 * Extrahiert Informationen aus dem retournierten Html.
+	 * 
+	 * Schritt 1: Entscheiden, ob es sich um eine Liste
+	 * oder einen Detaileintrag (mit Telefon handelt).
+	 * 
+	 * 20210404js: Aktuell sehe ich folgende frühe Unterscheidungsmöglichkeit:
+	 * 
+	 * Suchergebnis mit 1 Hit, kommt sofort als Detaileintrag:
+	 * -------------------------------------------------------
+	 * 
+	 *  Enthält ziemlich früh eine Ziele in folgendem Format:
+	 *  
+	 *  <meta content='Dr. med. Hamacher Jürg in Bern ✉ Adresse ☎ Telefonnummer ✅ auf local.ch' name='description'>
+	 *  (d.h. OHNE die Gruppe " - n Treffer - ".
+	 *   Fehlinterpretationen könnten nur auftreten, wenn man nach "Treffer -" in "xyz" sucht, und grade 1 Hit mit diesem Namen bekommen würde...)
+	 *   
+	 *  Der eigentliche Eintrag enthält/ist erkennbar an/folgt dem String:
+	 *  ADR_SINGLEDETAILENTRY_TAG
+	 * 
+	 *  Hier sind Name, Zusatzinformation, Adresse, Telefonnummer, e-Mail und Fax enthalten -
+	 *  aber eben nur für 1 Treffer pro Suchanfrage.
+	 * 
+	 * Suchergebnis mit mehreren Hits, kommt als Liste mit orientierenden Einträgen
+	 * ----------------------------------------------------------------------------
+	 * 
+	 *  Enthält ziemlich früh eine Ziele in folgendem Format:
+	 *  
+	 *  <meta content='Hamacher in Bern - 2 Treffer -  - Adresse ✓ Telefonnummer ✓ Ihre Nr.1 für Adressen und Telefonnummer' name='description'>
+	 *  Nebenbei: Sucht man nach "Treffer" in "Bern" kommt:
+	 *  <meta content='Treffer in Bern - 40 Treffer - (Restaurant, Beratung, Brockenhaus, Entsorgung Recycling, Freikirche) - Adresse ✓ Telefonnummer ✓ Ihre Nr.1 für Adressen und Telefonnummer' name='description'>
+	 *  
+	 *  Jeder Listeneintrag enthält ein Hyperlink zu einem Detaileintrag.
+	 *  
+	 *  Jeder eigentliche Eintrag enthält/ist erkennbar an/folgt dem String:
+	 *  ADR_LISTENTRY_TAG
+
+	 *  Die Ergebnisliste liefert dabei folgendes:
+	 * 
+	 *  In der www.local.ch Version mit Name, Adresse, Telefonnummer,
+	 *  zum Ansehen der letzteren muss im Browser ein Feld angeklickt werden,
+	 *  im Sourcecode ist die Telefonnummer direkt lesbar enthalten
+	 *  sowie wenn vorhanden auch eine e-Mail.
+	 *  Fehlen tut leider die "Zusatzinformation".
+	 *  Dazwischen und drumherum ist unendlich viel wenig-nützlicher Code...
+	 *  
+	 *  In der mobile.local.ch Version ist der HTML Code VIEL kompakter,
+	 *  fast nur nützlicher Content - ABER leider nicht mal die Telefonnummer
+	 *  enthalten, d.h. schon dazu müsste für jeden Eintrag erst einmal ein
+	 *  Hyperlink geöffnet werden, was dann einen Detaileintrag mit der
+	 *  fehlenden Nummer liefert.
+	 *  
+	 *  Die Ergebnisliste zeigt auch nochmal die verwendeten Suchbegriffe,
+	 *  die Anzahl der Treffer - und wenn es mehr als 10 Treffer sind,
+	 *  wird sie in mehrere Seiten aufgespalten - untendran kommen
+	 *  Hyperlinks für einige der umliegenden Seiten im gesamten Ergebnis,
+	 *  davon verwende ich das Link auf "Next" um zu erkennen, dass weitere
+	 *  Seiten vorhanden sind, und diese sofort automatisiert abzurufen
+	 *  und ebenfalls auszuwerten, bis zu einer einstellbaren Maximalzahl
+	 *  von Seiten (das plugin hat damit keine Mühe, ich möchte aber den
+	 *  Anbieter nicht verärgern, in dem von seinem für manuelle Bedienung
+	 *  gemachten Interface immer mal wieder mehr als 20 Seiten ganz
+	 *  offensichtlich durch ein anderes Client-Programm als einen
+	 *  konventionellen Web-Browser abgerufen werden...) 
+	 * 
+	 * 20210404js: the following is possibly outdated information:
+	 * 
+	 * Bisher ging die Unterscheidung anhand der <div class="xxx"> Einträge: 
+	 * 
+	 * Detaileinträge: "adrNameDetLev0", "adrNameDetLev1", "adrNameDetLev3"
+	 * Nur Detaileintrag "adrNameDetLev2" darf nicht extrahiert werden
+	 * 
+	 * Listeinträge: "adrListLev0", "adrListLev1", "adrListLev3"
+	 * Nur Listeintrag "adrListLev0Cat" darf nicht extrahiert werden
 	 * 
 	 */
 	public List<KontaktEntry> extractKontakte() throws IOException{
 		reset();
 		
-		logger.debug("DirectoriesContentParser.java: extractKontakte() running...\n");
-		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...\n");
+		//TODO: 20210404js: Well, here for once we get results for our search query in HTML - or XML.
+		//TODO: 20210404js: So theoretically, we could very well use XML tools to extract the information we're interested in,
+		//TODO: 20210404js: instead of using more or less coarsely implemented analysis handling it as plain flat text...
 		
+		logger.debug("DirectoriesContentParser.java: extractKontakte() running...");
+		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...");
+		
+		//20210404js: The <meta content ... > Field is not available in this probably single field any more at this stage any more.
+		//However, the Single Detailed Result file has various <meta content... > fields,
+		//and others, allowing for a reliable extraction of the desired content - 
+		//see documentation in method extractKontakt().
+		//<meta content='Dr. med. Hamacher Jürg in Bern ✉ Adresse ☎ Telefonnummer ✅ auf local.ch' name='description'>
+		//<meta content='Dr. med. Hamacher Jürg' property='og:title`> 
+		//...
+		//<span itemprop='name'>Dr. med. Hamacher Jürg</span>
+		//<div class='col-xs-12 title-card-subtitle'>PD Spezialarzt FMH Innere Medizin und Pneumologie (inkl. Schlafmedizin)</div
+		//<meta content='031 300 35 00' itemprop='telephone'>
+		//<meta content='031 300 35 01' itemprop='faxNumber'>
+		//<meta content='lungen-schlaf-praxis.hamacher@hin.ch' itemprop='email'>
+		
+		
+		//20210404js: These fields aren't available in this way any more.
+		/*
 		if (getNextPos("<meta content='Adresse von ") > 0) {
 			logger
 				.debug("Processing a <meta> field to help processing the 'details' field later on which is very unstructured after 20131124...\n");
@@ -309,56 +594,50 @@ public class DirectoriesContentParser extends HtmlParser {
 			metaPLZTrunc = removeDirt(extract("PLZ: ", ",")).replaceAll("[^A-Za-z0-9]", ""); //$NON-NLS-1$ //$NON-NLS-2$	//20131127js
 			metaOrtTrunc = removeDirt(extract("Ort: ", ",")).replaceAll("[^A-Za-z0-9]", ""); //$NON-NLS-1$ //$NON-NLS-2$	//20131127js
 			if (metaStrasseTrunc == null)
-				logger.debug("WARNING: metaStrasseTrunc == null\n");
+				logger.debug("WARNING: metaStrasseTrunc == null");
 			else
-				logger.debug("metaStrasseTrunc == " + metaStrasseTrunc + "\n");
+				logger.debug("metaStrasseTrunc == " + metaStrasseTrunc);
 			if (metaPLZTrunc == null)
-				logger.debug("WARNING: metaPLZTrunc == null\n");
+				logger.debug("WARNING: metaPLZTrunc == null");
 			else
-				logger.debug("metaPLZTrunc == " + metaPLZTrunc + "\n");
+				logger.debug("metaPLZTrunc == " + metaPLZTrunc);
 			if (metaOrtTrunc == null)
-				logger.debug("WARNING: metaOrtTrunc == null\n");
+				logger.debug("WARNING: metaOrtTrunc == null");
 			else
-				logger.debug("metaOrtTrunc == " + metaOrtTrunc + "\n");
+				logger.debug("metaOrtTrunc == " + metaOrtTrunc");
 		}
-		;
+		*/
 		
 		List<KontaktEntry> kontakte = new Vector<KontaktEntry>();
 		
 		int listIndex = getNextPos(ADR_LISTENTRY_TAG);
 		int detailIndex = getNextPos(ADR_SINGLEDETAILENTRY_TAG);
 		
-		logger.debug("DirectoriesContentParser.java: extractKontakte() initial values of...\n");
-		logger.debug("DirectoriesContentParser.java: extractKontakte().listIndex: "
-			+ listIndex + "\n");
-		logger.debug("DirectoriesContentParser.java: extractKontakte().detailIndex: "
-			+ detailIndex + "\n");
+		logger.debug("DirectoriesContentParser.java: extractKontakte() initial values of...");
+		logger.debug("DirectoriesContentParser.java: extractKontakte().listIndex: "+listIndex);
+		logger.debug("DirectoriesContentParser.java: extractKontakte().detailIndex: "+detailIndex);
 		
 		while (listIndex > 0 || detailIndex > 0) {
 			KontaktEntry entry = null;
 			
-			logger
-				.debug("DirectoriesContentParser.java: extractKontakte() intraloop values of...\n");
-			logger.debug("DirectoriesContentParser.java: extractKontakte().listIndex: "
-					+ listIndex + "\n");
-			logger.debug("DirectoriesContentParser.java: extractKontakte().detailIndex: "
-					+ detailIndex + "\n");
+			logger.debug("DirectoriesContentParser.java: extractKontakte() intraloop values of...");
+			logger.debug("DirectoriesContentParser.java: extractKontakte().listIndex: "+ listIndex);
+			logger.debug("DirectoriesContentParser.java: extractKontakte().detailIndex: "+ detailIndex);
 			
 			if (detailIndex < 0 || (listIndex >= 0 && listIndex < detailIndex)) {
 				// Parsing Liste
-				logger.debug("DirectoriesContentParser.java: Parsing Liste:\n");
+				logger.debug("DirectoriesContentParser.java: Parsing Liste:");
 				entry = extractListKontakt();
 			} else if (listIndex < 0 || (detailIndex >= 0 && detailIndex < listIndex)) {
 				// Parsing Einzeladresse
-				logger.debug("DirectoriesContentParser.java: Parsing Einzeladresse:\n");
+				logger.debug("DirectoriesContentParser.java: Parsing Einzeladresse:");
 				entry = extractKontakt();
 			}
 			
 			if (entry != null) {
-				logger.debug("DirectoriesContentParser.java: entry: "
-					+ entry.toString() + "\n");
+				logger.debug("DirectoriesContentParser.java: entry: "+entry.toString());
 			} else {
-				logger.debug("DirectoriesContentParser.java: entry: NULL\n");
+				logger.debug("DirectoriesContentParser.java: entry: NULL");
 			}
 			
 			if (entry != null) {
@@ -372,59 +651,88 @@ public class DirectoriesContentParser extends HtmlParser {
 	}
 	
 	/**
-	 * Extrahiert einen Kontakt aus einem Listeintrag
+	 * Extrahiert einen Kontakt aus einem Eintrag einer Liste mit Suchergebnissen
+	 * 
+	 * 20210404js: this is possibly outdated information:
 	 * 
 	 * Please note (!) that the <li class="detail">tag is a part of the ADR_LIST display type now,
 	 * which could be confusing to other people reviewing this code... And please note that one
 	 * entry does NOT begin with the <li class "detail">
 	 * tag, but (quite probably, I've not perfectly reviewed it) with the <div data-slot="... tag.
 	 * 
-	 * Please also note that the address/contact details seem to be included in either of the data
-	 * carrying lines.
+	 * Please also note that the address/contact details seem to be included
+	 * in either of the data carrying lines.
+	 *
+	 * A result of this type should be obtainable by searching for:
 	 * 
+	 * Wer, Was: Schmidt			Wo: Basel
+	 * Wer, Was: Mueller			Wo: Bern
+	 * Wer, Was: Mueller B			Wo: Bern
+	 * Wer, Was: Hamacher			Wo: bern
+	 *
+	 * TODO: As of 20210404js, the results (at least the detailed single results)
+	 * apparently contain clean data in meta info tags. Maybe use them instead of
+	 * grassing through the longer HTML polluted by advertising, graphics,
+	 * GUI for clicking-before-revealing-numbers etc. with all its uncertainties...
 	 * 
+	 * Instead of simply updateing target strings,
+	 * we might give the whole extraction logic a thorough review
+	 * based on a current sighting of result HTML dumps of both types beforehand.
 	 */
 	private KontaktEntry extractListKontakt() throws IOException, MalformedURLException{
 		
-		logger.debug("DirectoriesContentParser.java: extractListKontakt() running...\n");
-		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...\n");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt() running...");
+		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...");
 		
 		if (!moveTo(ADR_LISTENTRY_TAG)) { // Kein neuer Eintrag
 			return null;
 		}
 		
-		logger
-			.debug("DirectoriesContentParser.java: extractListKontakt() extracting next entry...\n");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt() extracting next entry...");
 		
 		int nextEntryPoxIndex = getNextPos(ADR_LISTENTRY_TAG); // 20120712js
 		
-		logger.debug("DirectoriesContentParser.java: extractListKontakt() nextEntryPoxIndex: "
-				+ nextEntryPoxIndex + "\n");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt() nextEntryPoxIndex: "+nextEntryPoxIndex);
 		
-		logger
-			.debug("DirectoriesContentParser.java: Shouldn't the \\\" in the following line and similar ones throughout this file be changed to a simple ' ???\n");
-		moveTo("<h2><a href=\"http://tel.local.ch/"); // 20131127js
-		String nameVornameText = extract("\">", "</a>"); //$NON-NLS-1$ //$NON-NLS-2$	//20120712js
+		logger.debug("DirectoriesContentParser.java: Shouldn't the \\\" in the following line and similar ones throughout this file be changed to a simple ' ???");
+		
+		//moveTo("<h2><a href=\"http://tel.local.ch/"); // 20131127js
+		//moveTo("<a href=\"/de/d/"); 					// 20210402js mobile.local.ch version only
+		moveTo("<h2 class='lui-margin-vertical-zero ");
+		String nameVornameText = extract("card-info-title'>", "</h2>"); //$NON-NLS-1$ //$NON-NLS-2$	//20120712js
 		
 		nameVornameText = removeDirt(nameVornameText);
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().nameVornameText: <"+nameVornameText+">");
 		
-		if (nameVornameText == null || nameVornameText.length() == 0) { // Keine
-																		// leeren
-																		// Inhalte
-			return null;
-		}
+		// 20210404js: Leftover from previous implementations.
+		// I don't know whether this is really needed. Probably not. But it shouldn't hurt either.
+		// Do not return any results from empty entries!
+		if (nameVornameText == null || nameVornameText.length() == 0) return null;
+		
+		//20210403js: Try to find and extract one or more leading academic or professional titles,
+		//by looking for dots in certain distances from the beginning of the name and each other.
+		//All that only if nameVornameText is not currently == null.
+		String akTitel = extractAkTitelFromNameVornameText(nameVornameText);
+		nameVornameText = nameVornameText.substring(akTitel.length()).trim();  
+				
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().akTitel: <"+akTitel+">");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().nameVornameText: <"+nameVornameText+">");
+
 		String[] vornameNachname = getVornameNachname(nameVornameText);
 		String vorname = vornameNachname[0];
 		String nachname = vornameNachname[1];
 		
-		// Anne Müller case debug output:
-		logger.debug("DirectoriesContentParser.java: extractListKontakt() nameVornameText: "
-				+ nameVornameText + "\n");
-		logger
-			.debug("DirectoriesContentParser.java: extractListKontakt() Possibly add better processing of a successor to role/categories/profession fields here as well, see comments above.\n");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().vorname: <"+vorname+">");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().nachname: <"+nachname+">");
+				
+		// Anne Müller in Interlaken - Craniosacral Therapie, e-Mail, website --- debug output:
+		logger.debug("DirectoriesContentParser.java: extractListKontakt() Possibly add better processing of a successor to role/categories/profession fields here as well, see comments above.");
 		
 		String zusatz = ""; // 20120712js
-		
+		//20210402js: Zusatzinfos just found with a test searching for Dr. Mueller in Basel. Example:
+		//
+		//</div><div class='card-info-category'><img alt="Frauenkrankheiten und Geburtshilfe (Gynäkologie und Geburtshilfe)" class="card-info-title-icon lui-margin-right-xxs" src="https://images.services.local.ch/bp/localplace-icon/ae/ae0824a1ea4a6d345277f087b87046f90f8d4737/icon-medical.svg?v=1&amp;sig=c77cc4e5dea818cf84ade29430621dc75acc7ac6591102545c0933b6cfbc066f" /><span>Frauenkrankheiten und Geburtshilfe (Gynäkologie und Geburtshilfe)<span class="card-info-category-item-separator"> • </span>Ärzte<span class="card-info-category-item-separator"> • </span>Schwangerschaft<span class="card-info-category-item-separator"> • </span>Praxis</span></div><div class='card-info-open hidden-print'>
+		//
 		//This is obviously much worse structured XML in a technical sense.
 		//It's all direct layout control, rather than providing logically structured content and letting the browser do the formatting etc. 
 		//Anyway - we would extract the single or multiple entries from a single line (!) into a single line for Elexis field "Zusatz" like this:
@@ -441,18 +749,21 @@ public class DirectoriesContentParser extends HtmlParser {
 			//This update gets us the categories information into the Zusatz field in the single result that appears after dblclick on one entry from the tabulated results.
 		
 		// Anne Müller case debug output:
-		logger.debug("DirectoriesContentParser.java: extractListKontakt() catIndex: "
-			+ catIndex + "\n");
-		logger.debug("DirectoriesContentParser.java: extractListKontakt() zusatz: \""
-			+ zusatz + "\"\n\n");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt() catIndex: "+catIndex+"");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt() zusatz: <"+zusatz+">\n");
+
 		
-		String adressTxt = extract("<span class='address'>", "</span>"); // 20131127js
+		//String adressTxt = extract("<span class='address'>", "</span>"); // 20131127js
+		//String adressTxt = extract("<span class='address'>", "</span>"); // 20210402js mobile.local.ch
+		
+		moveTo("<div class='card-info-address'>");					// 20210402js mobile.local.ch
+		String adressTxt = extract("<span>", "</span>").trim();;	// 20210402js mobile.local.ch
+		
 		//This update gets us address (street, number, zip, city) into both the tabulated results, and the single result that appears after dblclick on one entry from the tabulated results.
 		//(But still not the Fax number, that should be extracted from what appears if we click on "Details" in the local.ch tabulated results page.
 		// The Fax number is *not* contained in the tabulated result for multiple hits on local.ch, so that will be extracted later on.)  
 
-		logger.debug("DirectoriesContentParser.java: extractListKontakt().addressTxt:\n"
-				+ adressTxt + "\n\n");
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().addressTxt:\n"+adressTxt+"\n");
 
 		// As of 20120712js, the format of adressTxt is now simply like:
 		// "Musterstrasse 12, 3047 Bremgarten b. Bern" (test case: search for: hamacher, bern)
@@ -492,11 +803,16 @@ public class DirectoriesContentParser extends HtmlParser {
 				strasse = removeDirt(strasse.substring(CommaPos + 2));
 			}
 		}
+		
 		// 20120712js We want to parse the phone number also for the last entry in the list,
 		// where nextEntryPoxIndex will already be -1 (!).
 		// You can test that with meier, bern, or hamacher, bern.
 		String telNr = ""; // 20120712js
+		
+		//before 20210402js:
+		/*
 		int phonePos = (getNextPos("<span class='phone'")); // 20120712js
+		
 		if (phonePos >= 0 && ((phonePos < nextEntryPoxIndex) || nextEntryPoxIndex == -1)) { // 20120712js
 			moveTo("<span class='phone'"); // 20120712js
 			moveTo("<label>Telefon"); // 20120712js
@@ -510,11 +826,55 @@ public class DirectoriesContentParser extends HtmlParser {
 			moveTo("number\""); // 20120712js
 			telNr = extract(">", "</").replace("&nbsp;", "").replace("*", "").trim(); // 20120712js
 		} // 20120712js
+		*/
+
+		//20210402js:
+		//Die Telefonnummer steht da mehrfach drin, hinter verschiedenen Tags.
+		//Beim brauchbarsten gibt es zwei Formate:
+		//
+		//</a><span class='visible-print action-button text-center'>
+		//061 274 03 29
+		//</span>
+		//
+		//oder
+		//
+		//</a><span class='visible-print action-button text-center'>
+		//<span class='action-button-refuse-advertising'></span>
+		//061 123 45 67
+		//</span>
+		//
+		//Wenn also nach dem ersten Versuch der refuse-advertising string herauskommt, dann direkt die nächste Zeile lesen.		
+		moveTo("<span class='visible-print action-button text-'");
+		telNr = extract("center'>", "</").replace("&nbsp;", "").replace("*", "").trim(); // 20120712js
+		if (telNr.contains("refuse-advertising"))
+			telNr = extract("span>", "</").replace("&nbsp;", "").replace("*", "").trim(); // 20120712js
 		
-		// 20120713js: Please note: Fax and E-mail are NOT available in the List format result
-		// 20131127js: And this is still the case in the next revision after 20131124js...
-		return new KontaktEntry(vorname, nachname, zusatz, //$NON-NLS-1$
-			strasse, plz, ort, telNr, "", "", false); //$NON-NLS-1$
+		//20210403js:
+		String fax ="";
+		
+		
+		//pre-20210403js: e-mail parsing only included in single detailed entry processing.
+		//20210403js: e-Mail was seen in the following format after the phone number:
+		//<span class='lui-margin-left-xxs hidden-xs hidden-sm hidden-md hidden-print'>E-Mail</span>
+		//<span class='visible-print'>lungen-schlaf-praxis.hamacher@hin.ch</span>
+		String email = "";
+		//if (moveTo("<span class='lui-margin-left-xxs hidden-xs hidden-sm hidden-md hidden-print'>E-Mail</span>")) { // 20210403js
+		//System.out.println("CAVE: ********************************************************************************"); 
+		//System.out.println("CAVE: NOT EVERYONE HAS AN E-MAIL IN THIS DIRECTORY.");
+		//System.out.println("CAVE: This might accidentally bring us to the NEXT entry, thereby causing data mixing."); 
+		//System.out.println("CAVE: ********************************************************************************");
+		//20210403js: I added moveToNotPassing() to avoid this problem.
+		if (moveToNotPassing("hidden-print'>E-Mail</span>","</div>") ) { // 20210403js
+			//email = extract("<span class='visible-print'>", "</span>").trim();
+			email = extract("visible-print'>", "</span>").replace("&nbsp;", "").replace("*", "").trim();
+			}
+		logger.debug("DirectoriesContentParser.java: extractListKontakt().email: "+email);
+
+		// 20210404js: Please note: Fax is not available in the List format result, but e-Mail IS.
+		// outdated: 20120713js: Please note: Fax and E-mail are NOT available in the List format result
+		// outdated: 20131127js: And this is still the case in the next revision after 20131124js...
+		return new KontaktEntry(vorname, nachname, akTitel, zusatz, //$NON-NLS-1$
+			strasse, plz, ort, telNr, fax, email, false); //$NON-NLS-1$
 	}
 	
 	/**
@@ -549,81 +909,87 @@ public class DirectoriesContentParser extends HtmlParser {
 	}
 	
 	/**
-	 * Extrahiert einen Kontakt aus einem Detaileintrag
+	 * Extrahiert einen Kontakt aus einem einzeln angelieferten Detaileintrag
 	 * 
-	 * A result of this type should be obtainable by searching for: Wer, Was: eggimann meier Wo:
-	 * bern
+	 * A result of this type should be obtainable by searching for:
 	 * 
+	 * Wer, Was: eggimann meier		Wo: bern
+	 * Wer, Was: Schoop				Wo: Bettingen
+	 * Wer, Was: Dr. Hamacher		Wo: bern		(including ak. Titel, Zusatzinfo=Facharzt, Fon, Fax, e-Mail, Adresse)
 	 * 
+	 * TODO: 20210404js: Now, the results (at least the detailed single results)
+	 * apparently contain clean data in meta info tags. Maybe use them instead of
+	 * grassing through the longer HTML polluted by advertising, graphics,
+	 * GUI for clicking-before-revealing-numbers etc. with all its uncertainties...
+	 * 
+	 * Instead of simply updateing target strings,
+	 * we might give the whole extraction logic a thorough review
+	 * based on a current sighting of result HTML dumps of both types beforehand.
+	 *
+	 * For a listing classified as a "local business":
+	 *
+	 * <meta content='Dr. med. Hamacher Jürg in Bern ✉ Adresse ☎ Telefonnummer ✅ auf local.ch' name='description'>
+	 * <meta content='Dr. med. Hamacher Jürg' property='og:title`>
+	 * <div class='container' itemscope itemtype='http://schema.org/LocalBusiness'> 
+	 *	<span itemprop='name'>Dr. med. Hamacher Jürg</span>
+	 *  <div class='col-xs-12 title-card-subtitle'>PD Spezialarzt FMH Innere Medizin und Pneumologie (inkl. Schlafmedizin)</div
+	 *  <meta content='031 300 35 00' itemprop='telephone'>
+	 *  <meta content='031 300 35 01' itemprop='faxNumber'>
+	 *  <meta content='lungen-schlaf-praxis.hamacher@hin.ch' itemprop='email'>
+	 *  
+	 * For a listing classified as an individual person:
+	 * 
+	 * <meta content='S..... D..... in Bettingen ➩ Adresse &amp; Telefonnummer ☏ Das Telefonbuch von local.ch ✅ Ihre Nr. 1 für Adressen und Telefonnummern' name='description'>
+	 * <div class='container' itemscope itemtype='http://schema.org/Place'>
 	 */
 	private KontaktEntry extractKontakt(){
 		
-		logger.debug("DirectoriesContentParser.java: extractKontakt() running...\n");
-		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...\n");
+		logger.debug("DirectoriesContentParser.java: extractKontakt() running...");
+		logger.debug("Beginning of substrate: <" + extract("<", ">") + "...");
 		
 		if (!moveTo(ADR_SINGLEDETAILENTRY_TAG)) { // Kein neuer Eintrag
 			return null;
 		}
 		
-		logger.debug("DirectoriesContentParser.java: extractKontakt() extracting next entry...\n");
+		logger.debug("DirectoriesContentParser.java: extractKontakt() extracting next entry...");
 		
 		// 20120712js: Title: This field appears before fn; it is not being
 		// processed so far.
-		logger
-			.debug("DirectoriesContentParser.java: extractKontakt() Add processing of the class='title', class='urls', and optionally class='region'. \n");
+		logger.debug("DirectoriesContentParser.java: extractKontakt() Add processing of the class='title', class='urls', and optionally class='region'.");
 		
 		//Wegen des hinzugefügten loops für ggf. mehrere Adressen auch im Detailergebnis: Variablen hier vorab definiert,
 		//damit sie später bei return ausserhalb des loops noch sichtbar sind.
 		String vorname = "";
 		String nachname = "";
+		String akTitel = ""; 	
 
 		String streetAddress = "";
 		String poBox = "";
-		String plzCode = ""; // 20120712js
-		String ort = ""; // 20120712js
+		String plzCode = ""; 	// 20120712js
+		String ort = ""; 		// 20120712js
 
 		String zusatz = "";
-		String tel = ""; // 20120712js
-		String fax = ""; // 20120712js
-		String email = ""; // 20120712js
+		String tel = ""; 		// 20120712js
+		String fax = ""; 		// 20120712js
+		String email = ""; 		// 20120712js
+		
+		String website = ""; 	// 20210404js
 
-		Boolean doItOnceMore = true;
+		//20210404js Previous extraction approach commented out en bloc for now. 
+		//20210404js NO detection NOR support for multiple addresses per single hit result provided now.
+		//20210404js See comments below (re. Helsana, Assura as examples)
+		/*
+		Boolean doItOnceMore = true;	//20210404js: Erlaubt mehrere Passes, um z.B. mehrere e-Mail-Adressen zu sammeln.
 		while (doItOnceMore) { // 20120712js
-			moveTo("<h4 class='name fn'");
-			String nameVornameText = extract(">", "</h4>"); // 20120712js
-			
-			logger.debug("DirectoriesContentParser.java: extractKontakt().nameVornameText: \""
-					+ nameVornameText + "\"\n");
-			
-			if (nameVornameText == null || nameVornameText.length() == 0) { // Keine leeren Inhalte
-				return null;
-			}
-			String[] vornameNachname = getVornameNachname(nameVornameText);
-			
-			if (vorname.equals("")) {
-				vorname = vornameNachname[0];
-				nachname = vornameNachname[1];
-			} else {
-				
-				//Das hier ist vielleicht besser, wenn's geht:
-				nachname = nachname + " " + vorname;
-				vorname = vornameNachname[1] + " " + vornameNachname[0];
-			}
-			
-			// Anne Müller case debug output:
-			logger.debug("DirectoriesContentParser.java: extractKontakt() nameVornameText: "
-					+ nameVornameText + "\n");
+			/*	
+			//pre 20210404js
+			//moveTo("<h4 class='name fn'");
+			//String nameVornameText = extract(">", "</h4>"); // 20120712js
 			
 			if (moveTo("<div class='profession'>")) { // 20120712js
 				zusatz = extractTo("</div>"); // 20120712js
 			}
-			
-			//20131127js: Replace something like "Dr. med. PD" by "PD Dr. med."
-			if(zusatz!=null) {
-				zusatz = zusatz.replace("Dr. med. PD", "PD Dr. med.");
-				zusatz = zusatz.replace("Dr. med. Prof.", "Prof. Dr. med.");
-			}
-			
+						
 			// Anne Müller case debug output:
 			logger.debug("DirectoriesContentParser.java: extractKontakt() zusatz: \""
 				+ zusatz + "\"\n\n");
@@ -654,10 +1020,12 @@ public class DirectoriesContentParser extends HtmlParser {
 				logger.debug("WARNING: metaOrtTrunc == null\n");
 			else
 				logger.debug("metaOrtTrunc == " + metaOrtTrunc + "\n");
+			
 			for (String thisLine : addressLines) {
 				if (thisLine != null) {
 					thisLine = thisLine.trim();
 				}
+				
 				; //especially remove leading and trailing newlines. 
 				if (thisLine == null)
 					logger.debug("WARNING: thisLine == null\n");
@@ -768,6 +1136,7 @@ public class DirectoriesContentParser extends HtmlParser {
 					fax = extract(">", "</").replace("&nbsp;", "").replace("*", "").trim(); // 20120712js
 				}
 			}
+
 			logger.debug("jsdebug: Trying to parse e-mail...\n");
 			if (moveTo("<div class='email'")) { // 20131127js
 				//Here we also accumulate results from multiple address entries per single result, if available; This time, separated by ;
@@ -778,7 +1147,7 @@ public class DirectoriesContentParser extends HtmlParser {
 					email = email + "; " + extract("href=\"mailto:", "\">").trim();
 				}
 			}
-			//}	
+			logger.debug("jsdebug: Trying to parse e-mail...\n");
 			
 			doItOnceMore = (getNextPos("<h4 class='name fn'") > 0);
 			if (doItOnceMore) {
@@ -787,9 +1156,86 @@ public class DirectoriesContentParser extends HtmlParser {
 						"Warnung",
 						"Dieser eine Eintrag liefert gleich mehrere Adressen.\n\nBitte führen Sie selbst eine Suche im WWW auf tel.local.ch durch,\num alle Angaben zu sehen.\n\nIch versuche, für die Namen die Informationen sinnvoll zusammenzufügen;\nfür die Adressdaten bleibt von mehreren Einträgen der letzte bestehen.\n\nFalls Sie eine Verbesserung benötigen, fragen Sie bitte\njoerg.sigle@jsigle.com - Danke!");
 			}
-		}
 
-		return new KontaktEntry(vorname, nachname, zusatz, streetAddress, plzCode, ort, tel, fax,
+		}
+		*/
+		
+			//20210404js
+			moveTo("<span itemprop='name'");
+			String nameVornameText = extract(">", "</span>"); // 20120712js
+			nameVornameText = removeDirt(nameVornameText);
+			logger.debug("DirectoriesContentParser.java: extractKontakt().nameVornameText: <"+nameVornameText+">");
+
+			// 20210404js: Leftover from previous implementations.
+			// I don't know whether this is really needed. Probably not. But it shouldn't hurt either.
+			// Do not return any results from empty entries!
+			if (nameVornameText == null || nameVornameText.length() == 0) return null;
+			
+			//20210403js: Try to find and extract one or more leading academic or professional titles,
+			//by looking for dots in certain distances from the beginning of the name and each other.
+			//All that only if nameVornameText is not currently == null.
+			akTitel = extractAkTitelFromNameVornameText(nameVornameText);
+			nameVornameText = nameVornameText.substring(akTitel.length()).trim();  
+					
+			logger.debug("DirectoriesContentParser.java: extractKontakt().akTitel: <"+akTitel+">");
+			logger.debug("DirectoriesContentParser.java: extractKontakt().nameVornameText: <"+nameVornameText+">");
+
+			String[] vornameNachname = getVornameNachname(nameVornameText);
+			
+			if (vorname.equals("")) {
+				vorname = vornameNachname[0];
+				nachname = vornameNachname[1];
+			} else {
+				//Das hier ist vielleicht besser, wenn's geht:
+				nachname = nachname + " " + vorname;
+				vorname = vornameNachname[1] + " " + vornameNachname[0];
+			}
+
+			logger.debug("DirectoriesContentParser.java: extractKontakt(): Looking for zusatz...");
+
+			if (moveTo("<div class='js-sticky-hidden'>")) 
+				zusatz = extract("<div class='col-xs-12 title-card-subtitle'>","</div>");
+			
+			// You may use e.g. Anne Müller in Interlaken, Craniosacraltherapie
+			// as a debug case with Zusatzinfos, phone, e-mail, URL.
+			// Or Dr. Hamacher Bern with akTitel, Zusatzinfo, phone, fax, e-Mail.
+			//
+			// 20210404js: While updating to handle the current search result format,
+			//I removed any pre20210404js approaches here to keep the code more legible.
+			//Before that, there was multi line address splitting and processing etc.
+
+			logger.debug("DirectoriesContentParser.java: extractKontakt(): Looking for address, phone, email, url...");
+
+			//Eine Postfach-Adresse erscheint z.B. bei der Assura Pully
+			//nicht im span itemprop, sondern einfach danach im Klartext
+			//als weiteres Zeilenpaar mit Postfach und 1009 Pully (hier gleiche PLZ)
+			if (moveTo("<span class='icon-listing'></span>")) {
+				streetAddress = extract("<span itemprop=\"streetAddress\">","</span>");
+				plzCode = extract("<span itemprop=\"postalCode\">","</span>");
+				ort = extract("<span itemprop=\"addressLocality\">","</span>");
+			}	
+			
+			//20210404js: Suche nach helsana, lausanne hat liefert 2 Hits,
+			//die Details des ersten liefern zwei mal Telefonnummer + e-Mail. Hmpf.
+			//Ich mache jetzt heute aber KEINEN support für solche mehrfachdaten.
+			//Das müsste nämlich korrekterweise mehrere Einträge in der
+			//medshare directories Suchtabelle liefern, wo der gleiche Teil
+			//jeweils beibehalten, der variable Teil der Reihe nach verwendet wird.
+			//OOODER man verteilt die verschiedenen Telefonnummern auf die mehreren
+			//verfügbaren Felder. Beides ist heute jenseits meines Focus und Zeitbudgets.
+			if (moveTo("<span class='icon-phone'></span>")) 
+				tel = extract("<meta content='","' itemprop='telephone'>");
+
+			if (moveTo("<span class='icon-phone'></span>")) 
+				fax = extract("<meta content='","' itemprop='faxNumber'>");
+			
+			if (moveTo("<span class='icon-envelope'></span>")) 
+				email = extract("<meta content='","' itemprop='email'>");
+			
+			if (moveTo("<span class='icon-website'></span>")) 
+				website = extract("<meta content='","' itemprop='url'>");
+
+		return new KontaktEntry(vorname, nachname, akTitel, zusatz, streetAddress, plzCode, ort, tel, fax,
 			email, true);
 	}
 }

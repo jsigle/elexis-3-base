@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, medshare and Elexis
+ * Copyright (c) 2007, medshare and Elexis; Portions (c) 2021 Joerg M. Sigle
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,6 +8,7 @@
  * Contributors:
  *    M. Imhof - initial implementation
  *    G. Weirich - added toHashmap
+ *    J. Sigle - added Titel
  *    
  *******************************************************************************/
 
@@ -20,6 +21,7 @@ import ch.elexis.data.Patient;
 public class KontaktEntry {
 	private final String vorname;
 	private final String name;
+	private final String akTitel;
 	private final String zusatz;
 	private final String adresse;
 	private final String plz;
@@ -29,12 +31,13 @@ public class KontaktEntry {
 	private final String email;
 	private final boolean isDetail; // List Kontakt oder Detail Kontakt
 	
-	public KontaktEntry(final String vorname, final String name, final String zusatz,
+	public KontaktEntry(final String vorname, final String name, final String titel, final String zusatz,
 		final String adresse, final String plz, final String ort, final String tel, String fax,
 		String email, boolean isDetail){
 		super();
 		this.vorname = vorname;
 		this.name = name;
+		this.akTitel = titel;
 		this.zusatz = zusatz;
 		this.adresse = adresse;
 		this.plz = plz;
@@ -85,6 +88,10 @@ public class KontaktEntry {
 		return this.vorname;
 	}
 	
+	public String getTitel(){
+		return this.akTitel;
+	}
+
 	public String getZusatz(){
 		return this.zusatz;
 	}
@@ -125,13 +132,14 @@ public class KontaktEntry {
 	}
 	
 	public int countNotEmptyFields(){
-		return countValue(getVorname()) + countValue(getName()) + countValue(getZusatz())
+		return countValue(getVorname()) + countValue(getName()) + countValue(getTitel()) + countValue(getZusatz())
 			+ countValue(getAdresse()) + countValue(getPlz()) + countValue(getOrt())
 			+ countValue(getTelefon()) + countValue(getFax()) + countValue(getEmail());
 	}
 	
+	//TODO: 20210403js: check position of getTitel() here
 	public String toString(){
-		return getName() + ", " + getZusatz() + ", " + getAdresse() + ", " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		return getName() + ", " + getVorname() + ", " + getTitel() + getZusatz() + ", " + getAdresse() + ", " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			+ getPlz() + " " + getOrt() + " " + getTelefon(); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 }

@@ -12,7 +12,10 @@
  *    			 Change of search request to request results in (probably more efficient) (almost-)text mode.
  *               Some comments added with regard to program functionality.
  *               Some debug/monitoring output added in internal version only;
- *                 commented out again for published version: System.out.print("jsdebug: ...           
+ *                 commented out again for published version: System.out.print("jsdebug: ...
+ *               20210402 www.jsigle.com
+ *               Attempt to make this plugin functional again after (probably)
+ *               years of non-availability following another change on www.local.ch            
  *    
  *******************************************************************************/
 
@@ -127,6 +130,7 @@ public class DirectoriesHelper {
 	
 	/**
 	 * 20101213js added comments:
+	 * 20210402js updated comments:
 	 * 
 	 * @parameter: name, geo - name and location of the person/institution/... to be searched for
 	 * @return: a URL with a search request to tel.local.ch constructed from name and geo
@@ -156,22 +160,151 @@ public class DirectoriesHelper {
 	 *          Ein &range=all könnte eventuell alle Ergebnisse zurückliefern - nein, das tut es
 	 *          nicht (oder: derzeit nicht *mehr*), genauso scheint auch &mode=text ignoriert zu
 	 *          werden.
+	 *          
+	 *          20210402js:
+	 *          
+	 *          Trying to use the plugin as-is (after years? of non-functionality) shows that
+	 *          a permanent redirect message is received from the address currently used herein.
+	 *          And no content that could be parsed.
+	 *          
+	 *          Entering www.weisseseiten.ch in a browser gets a redirect to www.local.ch
+	 *          Entering a search via tel.local.ch causes a redirect to results via www.local.ch
+	 *          Ah, and most importantly - the redirect leads from http:// to https://
+	 *          
+	 *          I'll see what can be done to (possibly) get this functional again.
+	 *          
+	 *          I'm adding a parameer page so that &Page=n can be added to retrieve
+	 *          Listings that have multiple pages. When processing each page, we evaluate
+	 *          the page end to see if a link to "Next..." page is there and write this
+	 *          info in a module-global variable.
 	 */
-	private static URL getURL(String name, String geo) throws MalformedURLException{
+	private static URL getURL(String name, String geo, Integer getPage) throws MalformedURLException{
 		name = name.replace(' ', '+');
 		geo = geo.replace(' ', '+');
 		
-		String urlPattern = "http://tel.local.ch/{0}/q/?what={1}&where={2}&mode=text"; //$NON-NLS-1$
+		//pre 20210402:
+		//String urlPattern = "http://tel.local.ch/{0}/q/?what={1}&where={2}&mode=text"; //$NON-NLS-1$
+		//20210402js: The previous URL only returns a redirect info page.
+		//We must change from tel... to www... - and (!) from http:// to https://
+		//Afterwards, we get a proper html page with the search result again :-)
+		//(Still, we can't interpret ist, as apparently, the format has changed again.)
 		
-		System.out.print("jsdebug: DirectoriesHelper.java: " + urlPattern + "\n");
-		System.out.print("jsdebug: DirectoriesHelper.java: language: "
-			+ Locale.getDefault().getLanguage() + "  name: " + name + "  geo: " + geo + "\n");
+		//------------------------------------------------------------------------------------------------
+		String urlPattern = "https://www.local.ch/{0}/q/?what={1}&where={2}&mode=text&page={3}"; //$NON-NLS-1$
+		//------------------------------------------------------------------------------------------------
+
+		//Damit kommt schon etwas, was auswertbar aussieht.
+		//Die einzelnen Adressen sind dann aktuell etwa so verpackt:
+		/*
+		<div class='js-entry-card-container row lui-margin-vertical-xs lui-sm-margin-vertical-m'>
+		<div class='col-xs-12 lui-padding-horizontal-zero lui-sm-padding-horizontal-s'>
+		<div class='entry-card entry-card-tel lui-padding-horizontal-m lui-padding-vertical-m'>
+		<div class='entry-card-info entry-card-element'>
+		<div class='entry-card-info-element entry-card-info-element-first'>
+		<a class="card-info clearfix js-gtm-event" data-gtm-json="{&quot;AverageRating&quot;:null,&quot;DetailEntryCity&quot;:&quot;Basel&quot;,&quot;DetailEntryName&quot;:&quot;Schmidt Erik&quot;,&quot;EntryType&quot;:&quot;Professional&quot;,&quot;LocalCategory&quot;:&quot;Fotograf Fotoatelier&quot;,&quot;OnlineEntryID&quot;:&quot;ct6D7jFBhjtHxtfalZFdeg&quot;,&quot;Position&quot;:1,&quot;category&quot;:&quot;Detail Entry Selected&quot;,&quot;action&quot;:&quot;click&quot;,&quot;label&quot;:&quot;Group 4 - Title&quot;}" href="https://www.local.ch/de/d/basel/4055/fotograf-fotoatelier/schmidt-erik-ct6D7jFBhjtHxtfalZFdeg?dwhat=Schmidt&amp;dwhere=basel"><div class='card-info-element card-info-element-fixed card-info-element-column'>
+		<div class='entry-logo'>
+		<div class='entry-logo-content entry-logo-placeholder' style='background-image:url(&#39;https://images.services.local.ch/bp/localplace-icon/52/528429eddc8f081d75111d1b459272f7acf1f6ef/icon-photographic.svg?v=1&amp;sig=b7774e5cdb7edfb00c46c39e828d4853a2c84c582a0e40616f43e52d615597e0&#39;)'></div>
+		</div>
+
+		</div>
+		<div class='card-info-element'>
+		<h2 class='lui-margin-vertical-zero card-info-title'>
+		Schmidt Erik
+		</h2>
+		<div class='short-summary hidden-sm hidden-md hidden-lg'>
+		</div>
+
+		<div class='card-info-address'>
+		<span>Oltingerstrasse 25, 4055 Basel</span>
+		</div><div class='card-info-category'><span>Fotograf Fotoatelier</span></div><div class='card-info-open hidden-print'>
+
+		</div>
+		</div>
+		</a>
+		</div>
+		<div class='entry-card-info-element entry-card-info-element-fixed hidden-xs'>
+		<div class='summary lui-padding-left-m'>
+		<a rel="nofollow" class="summary-average-rating text-center js-gtm-event" data-gtm-json="{&quot;AverageRating&quot;:null,&quot;DetailEntryCity&quot;:&quot;Basel&quot;,&quot;DetailEntryName&quot;:&quot;Schmidt Erik&quot;,&quot;EntryType&quot;:&quot;Professional&quot;,&quot;LocalCategory&quot;:&quot;Fotograf Fotoatelier&quot;,&quot;OnlineEntryID&quot;:&quot;ct6D7jFBhjtHxtfalZFdeg&quot;,&quot;Position&quot;:1,&quot;category&quot;:&quot;Detail Entry Selected&quot;,&quot;action&quot;:&quot;click&quot;,&quot;label&quot;:&quot;Group 4 - Review - CTA&quot;}" href="https://www.local.ch/de/d/basel/4055/fotograf-fotoatelier/schmidt-erik-ct6D7jFBhjtHxtfalZFdeg?dwhat=Schmidt&amp;dwhere=basel#feedbacks"><div class='summary-ratings-stars'><span class='icon-star-00 rating-stars-star'></span><span class='icon-star-00 rating-stars-star'></span><span class='icon-star-00 rating-stars-star'></span><span class='icon-star-00 rating-stars-star'></span><span class='icon-star-00 rating-stars-star'></span></div>
+		<div class='summary-ratings-count'>Schreiben Sie die erste Bewertung</div>
+		</a></div>
+
+		</div>
+		</div>
+		<div class='entry-card-element'>
+		<div class='entry-card-element-left visible-xs'>
+		<button class='js-find-location btn card-info-location'>
+		<span class='icon-ios_location'></span>
+		</button>
+
+		</div>
+		<div class='entry-actions lui-margin-top-s'><a class="js-gtm-event js-kpi-event action-button text-center hidden-xs hidden-sm hidden-print action-button-primary" data-gtm-json="[{&quot;AverageRating&quot;:null,&quot;DetailEntryCity&quot;:&quot;Basel&quot;,&quot;DetailEntryName&quot;:&quot;Schmidt Erik&quot;,&quot;EntryType&quot;:&quot;Professional&quot;,&quot;LocalCategory&quot;:&quot;Fotograf Fotoatelier&quot;,&quot;OnlineEntryID&quot;:&quot;ct6D7jFBhjtHxtfalZFdeg&quot;,&quot;Position&quot;:1,&quot;action&quot;:&quot;click&quot;,&quot;label&quot;:&quot;Default&quot;,&quot;category&quot;:&quot;Phone Number&quot;},{&quot;entry_type&quot;:&quot;business&quot;,&quot;entry_position&quot;:1,&quot;entry_id&quot;:&quot;ct6D7jFBhjtHxtfalZFdeg&quot;,&quot;event&quot;:&quot;click_contact_interaction&quot;,&quot;contact_interaction_position&quot;:&quot;result&quot;,&quot;contact_type&quot;:&quot;call&quot;}]" data-kpi-uid="ct6D7jFBhjtHxtfalZFdeg" data-kpi-type="call" data-overlay-label="061 274 03 29" data-toggle="overlay" title="Anrufen" href="tel:+41612740329"><span class='icon-phone'></span>
+		<span class='js-contact-label lui-margin-left-xxs'>
+		Nummer anzeigen
+		</span>
+		</a><a class="js-gtm-event js-kpi-event action-button text-center hidden-md hidden-lg hidden-print action-button-primary" data-gtm-json="[{&quot;AverageRating&quot;:null,&quot;DetailEntryCity&quot;:&quot;Basel&quot;,&quot;DetailEntryName&quot;:&quot;Schmidt Erik&quot;,&quot;EntryType&quot;:&quot;Professional&quot;,&quot;LocalCategory&quot;:&quot;Fotograf Fotoatelier&quot;,&quot;OnlineEntryID&quot;:&quot;ct6D7jFBhjtHxtfalZFdeg&quot;,&quot;Position&quot;:1,&quot;action&quot;:&quot;click&quot;,&quot;label&quot;:&quot;Default&quot;,&quot;category&quot;:&quot;Phone Number&quot;},{&quot;entry_type&quot;:&quot;business&quot;,&quot;entry_position&quot;:1,&quot;entry_id&quot;:&quot;ct6D7jFBhjtHxtfalZFdeg&quot;,&quot;event&quot;:&quot;click_contact_interaction&quot;,&quot;contact_interaction_position&quot;:&quot;result&quot;,&quot;contact_type&quot;:&quot;call&quot;}]" data-kpi-uid="ct6D7jFBhjtHxtfalZFdeg" data-kpi-type="call" title="Anrufen" href="tel:+41612740329"><span class='icon-phone'></span>
+		<span class='lui-margin-left-xxs'>
+		061 274 03 29
+		</span>
+		</a><span class='visible-print action-button text-center'>
+		061 274 03 29
+		</span>
+		</div>
+		<div class='entry-card-element-right hidden-xs'>
+		<button class='js-find-location btn card-info-location'>
+		<span class='icon-ios_location'></span>
+		</button>
+
+		</div>
+		</div>
+		</div>
+		</div>
+		</div>
+			*/
+		//AAABER: DAS ist schon nicht besonders sparsam - und da kommt auch noch tonnenweise sonstiges mit.
+			
+		//Darum mal ein Versuch mit:
+
+		//------------------------------------------------------------------------------------------------
+		//String urlPattern = "https://mobile.local.ch/{0}/q/?what={1}&where={2}&mode=text"; //$NON-NLS-1$
+		//------------------------------------------------------------------------------------------------
+	
+		//...und schon kommt eine viel schlankere Seite heraus :-)
+		//ALLERDINGS ist auch die für die aktuelle Version des medshare directories plugins nicht interpretierbar.
 		
-		System.out
-			.print("jsToDo:  DirectoriesHelper.java: ToDo: maybe add &range=all to the search request.\n");
+		//Da kommt die einzelne Adresse aber so:
+		
+		/*
+		<div class='busresult'>
+		<h2 class='fn'>
+		<a href="/de/d/Schmidt-Erik-ct6D7jFBhjtHxtfalZFdeg?what=schmidt&where=basel">Schmidt Erik</a>
+		</h2>
+		<p class='phoneNumber'></p>
+		<div class='adr'><span class='street-address'>
+		Oltingerstrasse 25, 4055 Basel
+		</span></div>
+		</div>
+		*/
+		
+		//JA. THAT'S ALL!
+		//Und DAS ist mir wirklich lieber. :-)
+		//But then - NO: The phone numbers are not included in mobile.local.ch output,
+		//but each name has a hyperlink around it which leads to a more detailed entry -
+		//so the provider could spot automatic retrievals very easily and possibly hinder them -
+		//so I go back to looking at the "normal" version even if it comes with a lot of noise.
+		
+		
+			
+		
+		System.out.println("jsdebug: DirectoriesHelper.java: " + urlPattern);
+		System.out.println("jsdebug: DirectoriesHelper.java: language: "
+			+ Locale.getDefault().getLanguage() + "  name: " + name + "  geo: " + geo);
+		System.out.println("jsdebug: DirectoriesHelper.java: page: " + getPage.toString());
+				
+		//20210402js: The following does not help anything. Therefore added handling of multiple pages.
+		//System.out.println("jsToDo:  DirectoriesHelper.java: ToDo: maybe add &range=all to the search request.");
 		
 		return new URL(MessageFormat.format(urlPattern, new Object[] {
-			Locale.getDefault().getLanguage(), name, geo
+			Locale.getDefault().getLanguage(), name, geo, getPage
 		}));
 	}
 	
@@ -197,6 +330,7 @@ public class DirectoriesHelper {
 	
 	/**
 	 * Liest Inhalt einer Web-Abfrage auf www.directories.ch/weisseseiten
+	 * 20210402js: da gab's einen permanent redirect nach www.local.ch - offenbar umgekehrt wie früher :-)
 	 * 
 	 * 20101213js added comments:
 	 * 
@@ -234,7 +368,7 @@ public class DirectoriesHelper {
 	 *          method. But after all, obfuscating some 10 addresses in 45KB of javascript/html is
 	 *          not beautiful either.
 	 */
-	public static String readContent(final String name, final String geo) throws IOException,
+	public static String readContent(final String name, final String geo, final int getPage) throws IOException,
 		MalformedURLException{
 		
 		/*
@@ -273,11 +407,10 @@ public class DirectoriesHelper {
 		
 		System.out.print("jsdebug: DirectoriesHelper.java readContent() running...\n");
 		
-		// It is apparently NOT necessary to change our user agent to Mozilla to avoid getting a wap
-		// page.
-		// Switching over to the connection based URL reading approach AND setting ANY User-Agent AT
-		// ALL (!)
-		// does suffice to achieve that.
+		// It is apparently NOT necessary to change our user agent
+		// to Mozilla to avoid getting a wap page.
+		// Switching over to the connection based URL reading approach
+		// AND setting ANY User-Agent AT ALL (!) does suffice to achieve that.
 		//
 		// WARNING: userAgent="" works just as well as userAgent="Mozilla/5.0" etc.
 		// But: Removing the line "connection.addRequestProperty("User-Agent"...) below
@@ -288,7 +421,7 @@ public class DirectoriesHelper {
 		String userAgent = "Elexis/js www.jsigle.com/prog/elexis"; // receives: <div
 																	// class='container'>
 		
-		URL URLcontent = getURL(name, geo);
+		URL URLcontent = getURL(name, geo, getPage);
 		URLConnection connection = null;
 		InputStream input = null;
 		

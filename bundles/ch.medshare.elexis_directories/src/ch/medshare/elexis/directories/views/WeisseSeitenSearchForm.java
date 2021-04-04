@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, medshare and Elexis
+ * Copyright (c) 2007, medshare and Elexis, Portions (c) 2012-2021, Joerg M. Sigle (js, jsigle)
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *    M. Imhof - initial implementation
+ *    J. Sigle - Various revivals after local.ch output format changes,
+ *               added automatic extraction and handling of academic titles
  *    
  *******************************************************************************/
 
@@ -98,8 +100,8 @@ public class WeisseSeitenSearchForm extends Composite {
 	}
 	
 	/**
-	 * Liest Kontaktinformationen anhand der Kriterien name & geo. Bei der Suche wird die
-	 * Kontakteliste und der InfoText abgefüllt.
+	 * Liest Kontaktinformationen anhand der Kriterien name & geo.
+	 * Bei der Suche wird die Kontakteliste und der InfoText abgefüllt.
 	 */
 	private void readKontakte(final String name, final String geo){
 		final Cursor backupCursor = getShell().getCursor();
@@ -107,15 +109,34 @@ public class WeisseSeitenSearchForm extends Composite {
 		
 		getShell().setCursor(waitCursor);
 		
-		try {
-			String content = DirectoriesHelper.readContent(name, geo);
-			DirectoriesContentParser parser = new DirectoriesContentParser(content);
-			kontakte = parser.extractKontakte();
-			searchInfoText = parser.getSearchInfo();
-		} catch (IOException e) {
-			ExHandler.handle(e);
-		} finally {
-			getShell().setCursor(backupCursor);
+		kontakte.clear();	//20210402js: With multipage processing, we can't simply replace any more... 
+		int getPage = 0;
+		int maxPageLimit=20;
+		boolean thereAreMorePages = true;
+		while ( thereAreMorePages && (getPage<maxPageLimit) ){	//20210402js: Don't allow complete runaway searches...
+			getPage = getPage + 1;
+			System.out.println("WeisseSeitenSearchForm.java readKontakte getPage="+getPage);
+			try {
+				String content = DirectoriesHelper.readContent(name, geo, getPage);
+				DirectoriesContentParser parser = new DirectoriesContentParser(content);
+				
+				kontakte.addAll(parser.extractKontakte());
+				
+				searchInfoText = parser.getSearchInfo();
+				
+				if (getPage == 1) searchInfoText = searchInfoText+" - "+String.valueOf(getPage)+" Seite abgerufen";
+				else searchInfoText = searchInfoText+" - "+String.valueOf(getPage)+" Seiten abgerufen";
+				
+				thereAreMorePages = parser.checkForMorePages();
+				
+				if ( thereAreMorePages && (getPage == maxPageLimit) )
+					searchInfoText = searchInfoText+" (Abruf begrenzt - js)"; 
+
+			} catch (IOException e) {
+				ExHandler.handle(e);
+			} finally {
+				getShell().setCursor(backupCursor);
+			}
 		}
 	}
 	
@@ -165,7 +186,8 @@ public class WeisseSeitenSearchForm extends Composite {
 		}
 		return new String[] {
 			entry.getName(), entry.getVorname(), "", entry.getAdresse(), entry.getPlz(), //$NON-NLS-1$
-			entry.getOrt(), entry.getTelefon(), entry.getZusatz(), entry.getFax(), entry.getEmail()
+			entry.getOrt(), entry.getTelefon(), entry.getZusatz(), entry.getFax(), entry.getEmail(),
+			"", "", entry.getTitel()	//20210403js
 		};
 	}
 	
