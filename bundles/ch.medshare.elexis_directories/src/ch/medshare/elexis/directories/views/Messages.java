@@ -22,6 +22,7 @@ public class Messages extends NLS {
 	public static String WeisseSeitenSearchView_header_Ort;
 	public static String WeisseSeitenSearchView_header_Plz;
 	public static String WeisseSeitenSearchView_header_Tel;
+	public static String WeisseSeitenSearchView_header_Fax;
 	public static String WeisseSeitenSearchView_header_eMail;
 	public static String WeisseSeitenSearchView_header_Zusatz;
 	public static String WeisseSeitenSearchView_popup_newKontakt;

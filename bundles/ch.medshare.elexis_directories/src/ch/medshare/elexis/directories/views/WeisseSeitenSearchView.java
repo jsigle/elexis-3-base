@@ -71,17 +71,25 @@ public class WeisseSeitenSearchView extends ViewPart {
 				return entry.getTitel();
 			case 1:
 				return entry.getName() + " " + entry.getVorname(); //$NON-NLS-1$
+			//20210404js: Bring zusatz into the display (e.g. Facharztbezeichnung etc.)
+			//which is now also delivered from the extractor 
 			case 2:
-				return entry.getAdresse();
+				return entry.getZusatz();
 			case 3:
-				return entry.getPlz();
+				return entry.getAdresse();
 			case 4:
-				return entry.getOrt();
+				return entry.getPlz();
 			case 5:
+				return entry.getOrt();
+			case 6:
 				return entry.getTelefon();
+			//20210404js: Bring fax into the display
+			//which is now also delivered from the extractor 
+			case 7:
+				return entry.getFax();
 			//20210403js: Bring e-Mail into the display
 			//which is now also delivered from the extractor 
-			case 6:
+			case 8:
 				return entry.getEmail();
 			default:
 				return "-"; //$NON-NLS-1$
@@ -144,27 +152,43 @@ public class WeisseSeitenSearchView extends ViewPart {
 		
 		Table table =
 			new Table(listArea, SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.MULTI | SWT.BORDER);
-		//20210403js: Bring the title back into the display,
-		//which is now separately delivered from the extractor 
+		//20210403js: Bring the title into the display.
+		//20210404js: Bring the fields Zusatz and Fax into the display.
+		//All of these are now delivered (separately) from the extractor 
 		//All allignments changed to SWT.LEFT
+		//All widths are multiples of 40 now, except for Fon/Fax
 		TableColumn akTitelTc = new TableColumn(table, SWT.LEFT);
 		akTitelTc.setText(Messages.WeisseSeitenSearchView_header_akTitel); //$NON-NLS-1$
-		akTitelTc.setWidth(100);
+		akTitelTc.setWidth(80);
+
 		TableColumn nameTc = new TableColumn(table, SWT.LEFT);
 		nameTc.setText(Messages.WeisseSeitenSearchView_header_Name); //$NON-NLS-1$
-		nameTc.setWidth(250);
+		nameTc.setWidth(160);
+		
+		TableColumn zusatzTc = new TableColumn(table, SWT.LEFT);
+		zusatzTc.setText(Messages.WeisseSeitenSearchView_header_Zusatz); //$NON-NLS-1$
+		zusatzTc.setWidth(160);
+		
 		TableColumn adrTc = new TableColumn(table, SWT.LEFT);
 		adrTc.setText(Messages.WeisseSeitenSearchView_header_Adresse); //$NON-NLS-1$
-		adrTc.setWidth(140);
+		adrTc.setWidth(160);
+		
 		TableColumn plzTc = new TableColumn(table, SWT.LEFT);
 		plzTc.setText(Messages.WeisseSeitenSearchView_header_Plz); //$NON-NLS-1$
 		plzTc.setWidth(40);
+		
 		TableColumn ortTc = new TableColumn(table, SWT.LEFT);
 		ortTc.setText(Messages.WeisseSeitenSearchView_header_Ort); //$NON-NLS-1$
-		ortTc.setWidth(150);
+		ortTc.setWidth(160);
+		
 		TableColumn telTc = new TableColumn(table, SWT.LEFT);
 		telTc.setText(Messages.WeisseSeitenSearchView_header_Tel); //$NON-NLS-1$
 		telTc.setWidth(90);
+		
+		TableColumn faxTc = new TableColumn(table, SWT.LEFT);
+		faxTc.setText(Messages.WeisseSeitenSearchView_header_Fax); //$NON-NLS-1$
+		faxTc.setWidth(90);
+		
 		TableColumn emailTc = new TableColumn(table, SWT.LEFT);
 		emailTc.setText(Messages.WeisseSeitenSearchView_header_eMail); //$NON-NLS-1$
 		emailTc.setWidth(200);
