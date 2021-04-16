@@ -40,11 +40,11 @@
       <module>ch.elexis.laborimport.viollier.v2_test</module>
       <!-- <module>ch.elexis.icpc.fire.test</module> -->
       <module>ch.medshare.connect.abacusjunior.test</module>
-      <module>ch.medshare.elexis_directories.test</module>
+      <!-- <module>ch.medshare.elexis_directories.test</module> -->
       <module>ch.pharmed.phmprescriber_test</module>
       <module>com.hilotec.elexis.messwerte.v2_test</module>
       <module>net.medshare.connector.aerztekasse_test</module>
-      <module>net.medshare.connector.viollier_test</module>
+      <!-- <module>net.medshare.connector.viollier_test</module> -->
       <module>org.iatrix.bestellung.rose_test</module>
     </modules>
 

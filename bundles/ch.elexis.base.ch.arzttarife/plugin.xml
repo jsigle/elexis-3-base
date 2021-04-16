@@ -22,6 +22,16 @@
       </page>
    </extension>
    <extension
+         point="org.eclipse.ui.commands">
+   </extension>
+   <extension
+         point="org.eclipse.ui.menus">
+      <menuContribution
+            allPopups="false"
+            locationURI="popup:ch.elexis.core.ui.views.codesystems.BlockSelector">
+      </menuContribution>
+   </extension>
+   <extension
          point="org.eclipse.ui.views">
       <view
             category="ch.elexis.abrechnungKategorie"
@@ -45,6 +55,51 @@
             Class="ch.elexis.data.ArzttarifFactory"
             name="Arzttarife">
       </Factory>
+   </extension>
+   <extension
+         point="ch.elexis.core.data.RechnungsManager">
+      <Rechnung
+            name="Tarmed-Drucker"
+            outputter="ch.elexis.TarmedRechnung.RechnungsDrucker">
+      </Rechnung>
+      <Rechnung
+            name="Tarmed-XML-Export"
+            outputter="ch.elexis.TarmedRechnung.XMLExporter">
+      </Rechnung>
+   </extension>
+   <extension
+         point="ch.elexis.core.data.referenceDataImporter">
+      <importer
+            class="ch.elexis.data.importer.KVGTarmedReferenceDataImporter"
+            referenceDataId="tarmed_kvg_34">
+      </importer>
+      <importer
+            class="ch.elexis.data.importer.TarmedReferenceDataImporter"
+            referenceDataId="tarmed_34">
+      </importer>
+      <importer
+            class="ch.elexis.data.importer.PandemieReferenceDataImporter"
+            referenceDataId="pandemie">
+      </importer>
+   </extension>
+   <extension
+         point="ch.elexis.core.data.VerrechnungscodeAdjuster">
+      <adjuster
+            class="ch.elexis.views.PandemicVerrechnetAdjuster"
+            id="ch.elexis.base.ch.arzttarife.pandemic.adjuster">
+      </adjuster>
+   </extension>
+   <extension
+         point="ch.elexis.core.ui.dbcheck.ExternalMaintenance">
+      <ExternalMaintenance
+            MaintenanceCode="ch.elexis.base.ch.arzttarife.ui.dbcheck.UpdateTarmedInBlock">
+      </ExternalMaintenance>
+   </extension>
+   <extension
+         point="ch.elexis.core.ui.TextTemplateRequirement">
+      <TextTemplateRequirement
+            element="ch.elexis.tarmed.printer.TarmedTemplateRequirement">
+      </TextTemplateRequirement>
    </extension>
    <extension
          point="ch.elexis.core.ui.Verrechnungscode">
@@ -82,61 +137,6 @@
             ImporterClass="ch.elexis.data.PandemieImporter"
             name=" PandemieLeistung">
       </Leistung>
-   </extension>
-   <extension
-         point="ch.elexis.core.data.RechnungsManager">
-      <Rechnung
-            name="Tarmed-Drucker"
-            outputter="ch.elexis.TarmedRechnung.RechnungsDrucker">
-      </Rechnung>
-      <Rechnung
-            name="Tarmed-XML-Export"
-            outputter="ch.elexis.TarmedRechnung.XMLExporter">
-      </Rechnung>
-   </extension>
-   <extension
-         point="ch.elexis.core.data.referenceDataImporter">
-      <importer
-            class="ch.elexis.data.importer.KVGTarmedReferenceDataImporter"
-            referenceDataId="tarmed_kvg_34">
-      </importer>
-      <importer
-            class="ch.elexis.data.importer.TarmedReferenceDataImporter"
-            referenceDataId="tarmed_34">
-      </importer>
-      <importer
-            class="ch.elexis.data.importer.PandemieReferenceDataImporter"
-            referenceDataId="pandemie">
-      </importer>
-   </extension>
-   <extension
-         point="ch.elexis.core.ui.TextTemplateRequirement">
-      <TextTemplateRequirement
-            element="ch.elexis.tarmed.printer.TarmedTemplateRequirement">
-      </TextTemplateRequirement>
-   </extension>
-   <extension
-         point="org.eclipse.ui.menus">
-      <menuContribution
-            allPopups="false"
-            locationURI="popup:ch.elexis.core.ui.views.codesystems.BlockSelector">
-      </menuContribution>
-   </extension>
-   <extension
-         point="org.eclipse.ui.commands">
-   </extension>
-   <extension
-         point="ch.elexis.core.ui.dbcheck.ExternalMaintenance">
-      <ExternalMaintenance
-            MaintenanceCode="ch.elexis.base.ch.arzttarife.ui.dbcheck.UpdateTarmedInBlock">
-      </ExternalMaintenance>
-   </extension>
-   <extension
-         point="ch.elexis.core.data.VerrechnungscodeAdjuster">
-      <adjuster
-            class="ch.elexis.views.PandemicVerrechnetAdjuster"
-            id="ch.elexis.base.ch.arzttarife.pandemic.adjuster">
-      </adjuster>
    </extension>
 
 </plugin>

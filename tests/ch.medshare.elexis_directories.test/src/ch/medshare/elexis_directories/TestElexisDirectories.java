@@ -76,7 +76,10 @@ public class TestElexisDirectories {
 		Assert.assertTrue(to_test.exists());
 		KontaktEntry atupri =
 			new KontaktEntry("Krankenkasse Direktion", "Atupri", "Krankenkasse, Versicherung",
-				"Zieglerstrasse 29", "3007", "Bern", "031 555 09 11", "", "", true);
+				"Zieglerstrasse 29", "3007", "Bern", "031 555 09 11", "", "", null, true);
+		//20210407js: Added arguments to match modified definition of KontaktEntry
+		//to allow for a successful build by mvn,
+		//but will NOT review or try to understand what this test shall do and how this is checked.
 		List<KontaktEntry> expectedKontakte = new ArrayList<KontaktEntry>();
 		expectedKontakte.add(atupri);
 		compare_file_to_kontacts(to_test, expectedKontakte);
@@ -89,15 +92,21 @@ public class TestElexisDirectories {
 		File to_test = new File(base, "hamacher_bern.html");
 		Assert.assertTrue(to_test.exists());
 		KontaktEntry juerg =
+				//20210407js: Added arguments to match modified definition of KontaktEntry
+				//to allow for a successful build by mvn,
+				//but will NOT review or try to understand what this test shall do and how this is checked.
 			new KontaktEntry("Jürg", "Hamacher",
 				"Ärzte, Innere Medizin, Lungenkrankheiten (Pneumologie)",
 				"Bremgartenstrasse 119",
- "3012", "Bern", "031 300 35 00", "", "", true);
+ "3012", "Bern", "031 300 35 00", "", "", null, true);
 		List<KontaktEntry> expectedKontakte = new ArrayList<KontaktEntry>();
+		//20210407js: Added arguments to match modified definition of KontaktEntry
+		//to allow for a successful build by mvn,
+		//but will NOT review or try to understand what this test shall do and how this is checked.
 		KontaktEntry ellen =
 			new KontaktEntry("Ellen", "Hamacher", "", "Kutscherweg 20",
  "3047", "Bremgarten b. Bern",
-				"031 301 74 74", "", "", true);
+				"031 301 74 74", "", "", null, true);
 		expectedKontakte.add(juerg);
 		expectedKontakte.add(ellen);
 		compare_file_to_kontacts(to_test, expectedKontakte);
